@@ -1,0 +1,48 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "travel_server",
+            "type": "cppdbg",
+            "request": "launch",
+            "targetArchitecture": "x64",
+            "program": "${workspaceRoot}/bin/travel_server",
+            "args": ["127.0.0.1", "9000", "4", "data.txt", "output.txt"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "externalConsole": true,
+            "linux": {
+                "MIMode": "gdb"
+            },
+            "osx": {
+                "MIMode": "lldb"
+            },
+            "windows": {
+                "MIMode": "gdb"
+            }
+        },
+        {
+            "name": "travel_client",
+            "type": "cppdbg",
+            "request": "launch",
+            "targetArchitecture": "x64",
+            "program": "${workspaceRoot}/bin/traver_client",
+            "args": ["127.0.0.1", "9000"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "processId": "${command.pickProcess}",
+            "externalConsole": false,
+            "linux": {
+                "MIMode": "gdb"
+            },
+            "osx": {
+                "MIMode": "lldb"
+            },
+            "windows": {
+                "MIMode": "gdb"
+            }
+        }
+    ]
+}
