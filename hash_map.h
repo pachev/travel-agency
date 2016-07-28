@@ -14,6 +14,7 @@
 typedef size_t (*HashFunction)(void *);
 typedef size_t (*KeyCompare)(void *, void *);
 
+
 typedef struct Node * NodePtr;
 struct Node
 {

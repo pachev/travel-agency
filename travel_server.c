@@ -24,6 +24,11 @@ int string_equal(char const * string, char const * other_string);
 /// @returns NULL if command is invalid, else string response
 char * process_flight_request(char * command, HashMapPtr flight_map);
 
+/// @brief Add flight to flight map
+/// @param [in] flight flight string used as index
+/// @param [in] seats on flight
+void add_flight(char * flight, char * seats);
+
 // Holds flight/seat pairs of clients
 HashMapPtr flight_map;
 
@@ -62,6 +67,7 @@ void init_inet_socket(socket_info * sockfd, char * ip_address, int port);
 /// @brief error handler
 /// prints error and exits with error status
 void error(char * const message) {
+    accepting_connections = 0;
     perror(message);
     pthread_exit(NULL);
 }
@@ -77,9 +83,26 @@ int main (int argc, char * argv[]) {
     int no_ports = atoi(argv[3]);
     char * in_filename = argv[4];
     char * out_filename = argv[5]; 
-
+    
     // initialize flight map
     flight_map = HashMap_New(NULL, NULL, NULL);
+
+    // read input data
+    FILE * file;
+    if (!(file = fopen(in_filename, "ra+")))
+        error("error: cannot open input file"); 
+
+    // read all lines from input
+    size_t length = 0;
+    ssize_t read;
+    char * input;
+    while ((read = getline(&input, &length, file)) != -1) {
+        // get tokens from input
+        char * flight = strtok_r(NULL, " ", &input);
+        char * seats = strtok_r(NULL, " ", &input);
+
+        add_flight(flight, seats);
+    }
     
     /// initialize multithreading objects
     pthread_attr_init(&thread_attr);
@@ -90,25 +113,24 @@ int main (int argc, char * argv[]) {
     
     // initialize sockets
     socket_info servers[no_ports];
-    int index = 0;
-    for (index = 0; index < no_ports; index++) {
-        int port = start_port + index;
-        
+    int index = 0, 
+        port = start_port;
+
+    for (index = 0; index < no_ports; index++, port += index) {
         // intialize socket info
         init_inet_socket(&servers[index], ip_address, port);
         
         // Start accept handler on another thread
-        int thread_id;
-        if ((thread_id = pthread_create(&connection_threads[index], &thread_attr, accept_socket_handler, &servers[index])))
-        {}
-        
-        printf("server: started connection handler thread %d", thread_id);
+        if (pthread_create(&connection_threads[index], &thread_attr, accept_socket_handler, &servers[index]) == 0)
+        {
+            printf("server: started server on port %d\n", port);
+        }
     }
 
-    // loop until exit command
+    // data input
     while (1) {
         // buffer incoming commands from command line
-        int const BUFFER_SIZE = 256;
+        size_t const BUFFER_SIZE = 256;
         char input[BUFFER_SIZE];
         memset(&input, 0, sizeof(input));
 
@@ -132,6 +154,21 @@ int main (int argc, char * argv[]) {
     HashMap_Free(flight_map);
 
     return 0; 
+}
+
+void add_flight(char * flight_token, char * seats_token) {
+    // assign persistent memory for hash node
+    char * flight = malloc(sizeof(char) * strlen(flight_token));
+    char * seats = malloc(sizeof(char) * strlen(seats_token));
+    
+    // copy temp strings into memory
+    strcpy(flight, flight_token);
+    strcpy(seats, seats_token);
+
+    // acquire lock to flight_map
+    pthread_mutex_lock(&flight_map_mutex);
+    HashMap_Add(flight_map, flight, seats);
+    pthread_mutex_unlock(&flight_map_mutex);
 }
 
 void * accept_socket_handler(void * handler_args) {
@@ -241,14 +278,12 @@ char * process_flight_request(char * input, HashMapPtr flight_map) {
 
     // get seats from flight map
     if (string_equal(command, "QUERY")) {
-        char * flight = strtok(NULL, " "); 
-        printf("server: queryin flight %s\n", flight);
+        char * flight = strtok_r(NULL, " ", &command_token); 
+        printf("server: querying flight %s\n", flight);
 
-        char * seats;
-        
         // acquire lock to flight_map
         pthread_mutex_lock(&flight_map_mutex);
-        
+        char * seats;
         // retrieve seats from map
         if ((seats = (char *) HashMap_GetValue(flight_map, flight))) {
             printf("server: flight %s has %s seats\n", flight, seats);
@@ -258,9 +293,18 @@ char * process_flight_request(char * input, HashMapPtr flight_map) {
     } 
     // add seats to flight map
     else if (string_equal(command, "RESERVE")) {
-        char * flight = strtok(NULL, " ");
-        char * seats = strtok(NULL, " ");
+        // get tokens from command
+        char * flight_token = strtok_r(NULL, " ", &command_token);
+        char * seats_token = strtok_r(NULL, " ", &command_token);
+
+        // assign persistent memory for hash node
+        char * flight = malloc(sizeof(char) * strlen(flight_token));
+        char * seats = malloc(sizeof(char) * strlen(seats));
         
+        // copy temp strings into memory
+        strcpy(flight, flight_token);
+        strcpy(seats, seats_token);
+
         // acquire lock to flight_map
         pthread_mutex_lock(&flight_map_mutex);
         HashMap_Add(flight_map, flight, seats);
@@ -269,13 +313,6 @@ char * process_flight_request(char * input, HashMapPtr flight_map) {
         printf("server: reserving %s seats on flight %s\n", seats, flight);
         
         return "RESERVED";
-    }
-    // handle other commands
-    if (string_equal(command, "RETURN")) {}
-    if (string_equal(command, "LIST")) {}
-    if (string_equal(command, "LIST_AVAILABLE")) {}
-    if (string_equal(command, "EXIT")) {
-        return "EXIT";
     }
 
     return "ERROR"; 

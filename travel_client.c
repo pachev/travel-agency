@@ -19,7 +19,7 @@ void error(char const * buffer) {
 int main(int argc, char * argv[]) {
     // check number of arguments
     if (argc < 3)
-        error("usage: travel_client ip_address port\n");
+        error("usage: travel_client ip_address out_file\n");
      
     // assign command line arguments
     char * ip_address = argv[1];
@@ -67,6 +67,8 @@ int main(int argc, char * argv[]) {
         // prompt user
         printf("\nclient: enter message to be sent: ");
         fgets(buffer, sizeof(buffer), stdin);
+
+        strtok(buffer, "\n"); // remove \n newline from buffer
 
         // if exit in command
         if (strstr(buffer, "EXIT"))
