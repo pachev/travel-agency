@@ -139,6 +139,13 @@ void * accept_socket_handler(void * handler_args) {
     socket_info * inet_socket = (socket_info *) handler_args;
     
     int clientfd;
+        
+    // maximum number of input connections queued at a time
+    int const MAX_CLIENTS = 10;
+
+    // listen for connections on sockets
+    if (listen(inet_socket->fd, MAX_CLIENTS) < 0)
+        error("error: listening to connections");
     
     // TODO: replace 1 with semaphore
     while (accepting_connections) {
@@ -218,13 +225,6 @@ void init_inet_socket(socket_info * inet_socket, char * ip_address, int port) {
     // bind socket information to socket handler
     if (bind(inet_socket->fd, (struct sockaddr *) & server_address, sizeof(server_address)) < 0)
         error("error: binding socket to address");
-        
-    // maximum number of input connections queued at a time
-    int const MAX_CLIENTS = 10;
-
-    // listen for connections on sockets
-    if (listen(inet_socket->fd, MAX_CLIENTS) < 0)
-        error("error: listening to connections");
 }
 
 int string_equal(char const * string, char const * other_string) {
