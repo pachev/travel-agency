@@ -11,3 +11,4 @@ hashmap:
 
 clean:
 	find . -name '*.o' -delete	
+	find . -name '*.sw' -delete	
