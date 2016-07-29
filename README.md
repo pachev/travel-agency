@@ -2,6 +2,13 @@
 
 Travel Agency client/server applications
 
+## Build
+```
+git clone https://gitlab.com/openhid/travel-agency
+git submodule update --init --recursive
+make
+```
+
 ## talent_server
  usage: `talent_server ip_address start_port no_ports data_file output_file`
 
