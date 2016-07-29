@@ -298,11 +298,15 @@ char * process_flight_request(char * input, map_t flight_map) {
     char * seats;
 
     // fake
+    int result;
     printf("querying flight %s\n", flight);
     pthread_mutex_lock(&flight_map_mutex);
     // retrieve seats from map
-    assert(hashmap_get(flight_map, flight, (void**) &seats) == MAP_OK);
+    result = hashmap_get(flight_map, flight, (void**) &seats);
     pthread_mutex_unlock(&flight_map_mutex);
+
+    if (result != MAP_OK)
+        return "error: expecting flight"; 
 
     return seats;
 }
