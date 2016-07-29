@@ -36,28 +36,28 @@ int main(int argc, char * argv[]) {
     // stores host information
     struct hostent * server;
 
-    // create a new socket stream
-    if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-        error("error: opening client socket");
-
-    int enable = 1;
-    if (setsockopt(client_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1)
-        error("error: cannot set socket options");
-
-    if ((server = gethostbyname(ip_address)) == NULL) 
-        error("error: no host at ip addresss");
-
-    // initialize server_address object
-    memset(&server_address, 0, sizeof(server_address));
-    server_address.sin_family = AF_INET; // set socket type
-    server_address.sin_port = htons(port); // set port number
-    inet_aton(ip_address, &server_address.sin_addr); // set socket ip address
-
-    // connect socket to server address 
-    if (connect(client_fd, (struct sockaddr *) &server_address, sizeof(server_address)) < 0)
-        error("error: connecting to server");
-
     while (1) {
+        // create a new socket stream
+        if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+            error("error: opening client socket");
+
+        int enable = 1;
+        if (setsockopt(client_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1)
+            error("error: cannot set socket options");
+
+        if ((server = gethostbyname(ip_address)) == NULL) 
+            error("error: no host at ip addresss");
+
+        // initialize server_address object
+        memset(&server_address, 0, sizeof(server_address));
+        server_address.sin_family = AF_INET; // set socket type
+        server_address.sin_port = htons(port); // set port number
+        inet_aton(ip_address, &server_address.sin_addr); // set socket ip address
+
+        // connect socket to server address 
+        if (connect(client_fd, (struct sockaddr *) &server_address, sizeof(server_address)) < 0)
+            error("error: connecting to server");
+
         // stores incoming data from server
         int const BUFFER_SIZE = 256;
         char buffer[BUFFER_SIZE];
@@ -87,11 +87,11 @@ int main(int argc, char * argv[]) {
             error("error: reading from socket");
 
         printf("client: read %s from server\n", buffer);
+
+        printf("\nclient: closing client\n");
+        // close socket
+        close(client_fd);
     }
-    
-    printf("\nclient: closing client\n");
-    // close socket
-    close(client_fd);
 
     return 0;
 } 
