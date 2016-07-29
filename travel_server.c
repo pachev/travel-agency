@@ -290,54 +290,21 @@ int string_equal(char const * string, char const * other_string) {
 
 
 char * process_flight_request(char * input, map_t flight_map) {
-    // split command string to get command and arguments
-    char * command_token;
-    char * delimeter = " ";
-    char * command;
-
-    if(!(command = strtok_r(input, delimeter, &command_token))) {
-        error("error: cannot get command");
-    }
+    // parse input for commands
+    // for now we're just taking the direct command
     
-    printf("server: processing command %s\n", command);
+    // split command string to get command and arguments
+    char * flight = input;
+    char * seats;
 
-    // get seats from flight map
-    if (string_equal(command, "QUERY")) {
-        char * flight;
-        if (!(flight = strtok_r(NULL, delimeter, &command_token))) {
-            error("error: connot get QUERY arguments");
-        }
+    // fake
+    printf("querying flight %s\n", flight);
+    pthread_mutex_lock(&flight_map_mutex);
+    // retrieve seats from map
+    assert(hashmap_get(flight_map, flight, (void**) &seats) == MAP_OK);
+    pthread_mutex_unlock(&flight_map_mutex);
 
-        printf("server: querying flight %s\n", flight);
-
-        // acquire lock to flight_map
-        char * seats;
-        pthread_mutex_lock(&flight_map_mutex);
-        // retrieve seats from map
-        assert(hashmap_get(flight_map, flight, (void**) &seats) == MAP_OK);
-        pthread_mutex_unlock(&flight_map_mutex);
-
-        if (seats) {
-            printf("server: flight %s has %s seats\n", flight, seats);
-            return seats;
-        }
-    } 
-    // add seats to flight map
-    else if (string_equal(command, "RESERVE")) {
-        // get tokens from command
-        char * flight; 
-        char * seats;
-       
-        if(!(((flight = strtok_r(NULL, delimeter, &command_token))) &&
-            (seats = strtok_r(NULL, delimeter, &command_token)))) {
-            error("error: cannot get RESERVE arguments");
-        }
-
-        add_flight(flight_map, flight, seats);
-        return "RESERVED";
-    }
-
-    return "ERROR"; 
+    return seats;
 }
 
 void launch_server(socket_info * server, pthread_t * thread) {
