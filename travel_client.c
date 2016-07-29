@@ -9,6 +9,8 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 
+#include "c_hashmap/hashmap.h"
+
 /// prints error buffer and exits
 /// with error status
 void error(char const * buffer) {

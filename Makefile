@@ -1,11 +1,13 @@
-all: travel_client travel_server hash_map
+CC=gcc -std=c99 -pthread -Wall
+
+all: travel_client travel_server hashmap
 
 # all targets begining with "travel_"
-travel_%:  hash_map
-	gcc $@.c $^.o -o bin/$@
+travel_%:  hashmap
+	$(CC) $@.c $^.o -o bin/$@
 
-hash_map:
-	gcc -c $@.c
+hashmap:
+	$(CC) -c c_hashmap/$@.c
 
 clean:
 	find . -name '*.o' -delete	

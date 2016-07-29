@@ -1,0 +1,3 @@
+[submodule "c_hashmap"]
+	path = c_hashmap
+	url = https://github.com/petewarden/c_hashmap
