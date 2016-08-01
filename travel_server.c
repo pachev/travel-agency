@@ -2,6 +2,8 @@
 /// Travel agent server application
 /// https://gitlab.com/openhid/travel-agency
 
+#define _GNU_SOURCE
+
 #include <assert.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -41,6 +43,9 @@ void * server_handler(void * socket_info);
 /// @param [in] flight flight string used as index
 /// @param [in] seats on flight
 void add_flight(map_t flight_map, char * flight, char * seats);
+
+/// @brief frees memory associated with map items 
+void free_flight_map_data(map_t flight_map);
 
 /// @brief initializes inet socket with given address information
 /// @param sockfd socket_info object to tbe initialized
@@ -138,7 +143,10 @@ int main (int argc, char * argv[]) {
 
     close_servers(servers, connection_threads, no_ports);
 
-    // free hash map memory
+    // free memory of items in hashmap
+    free_flight_map_data(flight_map);
+
+    // free hashmap handle
     hashmap_free(flight_map);
 
     return 0; 
@@ -161,6 +169,33 @@ void add_flight(map_t flight_map, char * flight_token, char * seats_token) {
     pthread_mutex_unlock(&flight_map_mutex);
 
     printf("server: reserving %s seats on flight %s\n", seats, flight);
+}
+
+void  free_flight_map_data(map_t flight_map) {
+    // data stuctures used to access hashmap internals 
+    struct hashmap_element {
+        char* key;
+        int in_use;
+        any_t data;
+    };
+
+    struct hashmap_map {
+        int table_size;
+        int size;
+        struct hashmap_element *data;
+    };
+
+    struct hashmap_map * map = (struct hashmap_map *) flight_map;
+
+    // iterate hashmap internal table and free data
+    int index;
+    for (index = 0; index < map->table_size; index++) {
+        if (map->data[index].in_use != 0) {
+            map->data[index].in_use = 0;
+            free(map->data[index].key);
+            free(map->data[index].data);
+        }
+    }
 }
 
 void * server_handler(void * handler_args) {
@@ -292,23 +327,56 @@ int string_equal(char const * string, char const * other_string) {
 char * process_flight_request(char * input, map_t flight_map) {
     // parse input for commands
     // for now we're just taking the direct command
-    
     // split command string to get command and arguments
-    char * flight = input;
-    char * seats;
 
-    // fake
-    int result;
-    printf("querying flight %s\n", flight);
-    pthread_mutex_lock(&flight_map_mutex);
-    // retrieve seats from map
-    result = hashmap_get(flight_map, flight, (void**) &seats);
-    pthread_mutex_unlock(&flight_map_mutex);
+    char * input_tokens = NULL; // used to save tokens when splitting string  
+    char * command = NULL; 
 
-    if (result != MAP_OK)
-        return "error: expecting flight"; 
+    if (!(command= strtok_r(input, " ", &input_tokens))) {
+		return "error: cannot proccess server command"; 
+	}
 
-    return seats;
+    if (string_equal(command, "QUERY")) {
+		// get flight to query 
+		char * flight = NULL; 
+		if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
+			return "error: cannot proccess flight to query";
+		}
+
+		char * seats;
+		int result;
+		printf("server: querying flight %s\n", flight);
+		pthread_mutex_lock(&flight_map_mutex);
+		// retrieve seats from map
+		result = hashmap_get(flight_map, flight, (void**) &seats);
+		pthread_mutex_unlock(&flight_map_mutex);
+
+		if (result != MAP_OK) {
+			return "error: query failed"; 
+		}
+
+		return seats;
+    }	
+
+    if (string_equal(command, "RESERVE")) {
+        char * flight = NULL;
+        char * seats = NULL;
+
+        if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
+            return "error cannot process flight to reserve";
+        }
+
+        if (!(seats = strtok_r(NULL, " ", &input_tokens))) {
+            return "error cannot process seats to reserve";
+        }
+
+        printf("server: reserving %s seats on flight %s\n", seats, flight);
+        add_flight(flight_map, flight, seats);
+
+        return "success";
+    }
+
+	return "error: cannot recognize command"; 
 }
 
 void launch_server(socket_info * server, pthread_t * thread) {
@@ -335,8 +403,9 @@ void read_flight_map_file(char * file_name, map_t flight_map) {
     char * input;
     while ((read = getline(&input, &length, file)) != -1) {
         // get tokens from input
-        char * flight = strtok_r(NULL, " ", &input);
-        char * seats = strtok_r(NULL, " ", &input);
+       	char * input_tokens = NULL;
+	    char * flight = strtok_r(input, " ", &input_tokens);
+        char * seats = strtok_r(NULL, " ", &input_tokens);
 
         add_flight(flight_map, flight, seats);
     }

@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,8 +75,11 @@ int main(int argc, char * argv[]) {
         strtok(buffer, "\n"); // remove \n newline from buffer
 
         // if exit in command
-        if (strstr(buffer, "EXIT"))
+        if (strstr(buffer, "EXIT")) {
+            printf("\nclient: closing client\n");
+            close(client_fd);
             break;
+        }
 
         // send input to server
         if (write(client_fd, buffer, strlen(buffer) + 1) < 0)
@@ -89,7 +94,6 @@ int main(int argc, char * argv[]) {
         printf("client: read %s from server\n", buffer);
 
         printf("\nclient: closing client\n");
-        // close socket
         close(client_fd);
     }
 
