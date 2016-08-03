@@ -1,18 +1,19 @@
 # Travel Agency
 
 Travel Agency client/server applications
+Forked from https://gitlab.com/openhid/travel-agency 
 
 ## Build
 ```
-git clone https://gitlab.com/openhid/travel-agency
-git submodule update --init --recursive
-make
+git clone https://github.com/pachev/travel-agency.git
+
+make clean && make
 ```
 
-## talent_server
- usage: `talent_server ip_address start_port no_ports data_file output_file`
+## travel_server
+ usage: `travel_server ip_address start_port no_ports data_file output_file`
 
- `$ talent_server 127.0.0.1 9000 5 in.txt out.txt`
+ `$ travel_server 127.0.0.1 9000 5 in.txt out.txt`
 
 ### Commands
 #### EXIT 
@@ -29,10 +30,10 @@ Write filename with current data.
 
 
 
-## talent_client
-usage: `talent_client ip_address port`
+## travel_client
+usage: `travel_client ip_address port`
 
-`$ talent_client 127.0.0.1 9000`
+`$ travel_client 127.0.0.1 9000`
 
 ### Commands
 #### LOGON `username`
