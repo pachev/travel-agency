@@ -430,7 +430,7 @@ char * process_flight_request(char * input, map_t flight_map) {
 
         hashmap_foreach(flight_map, &print_flight);
     
-        return "success"
+        return "success";
     }
 
     if (string_equal(command, "RESERVE")) {
