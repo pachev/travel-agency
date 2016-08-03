@@ -92,9 +92,8 @@ int main(int argc, char * argv[]) {
         if (read(client_fd, buffer, sizeof(buffer)) < 0)
             error("error: reading from socket");
 
-        printf("client: read %s from server\n", buffer);
+        printf("client:  %s", buffer);
 
-        printf("client: closing client\n");
         close(client_fd);
     }
 

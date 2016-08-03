@@ -1,5 +1,3 @@
-/// file travel_server.c
-/// Travel agent server application
 /// https://gitlab.com/openhid/travel-agency
 
 #define _GNU_SOURCE
@@ -91,7 +89,7 @@ void error(char * const message) {
 /// pair of each map item
 /// @param map hashmap iterated
 /// @param callback function pointer taking as arguments
-void hashmap_foreach(map_t map, void(* callback)(char * key, void * data));
+void * hashmap_foreach(map_t map, void(* callback)(char * key, void * data));
                           
 int main (int argc, char * argv[]) {
     // if not enough arguments
@@ -190,7 +188,8 @@ void add_flight(map_t flight_map, char * flight_token, char * seats_token) {
     printf("server: reserving %s seats on flight %s\n", seats, flight);
 } // add_flight
 
-void hashmap_foreach(map_t flight_map, void(* callback)(char *, void *)) {
+void * hashmap_foreach(map_t flight_map, void(* callback)(char *, void *)) {
+
     // data stuctures used to access hashmap internals 
     struct hashmap_element {
         char* key;
@@ -204,15 +203,22 @@ void hashmap_foreach(map_t flight_map, void(* callback)(char *, void *)) {
         struct hashmap_element *data;
     };
 
+    char *info = malloc(sizeof(char) * 256);//TODO fix possible memory issues
+    info[0] = '\n';
+
     struct hashmap_map * map = (struct hashmap_map *) flight_map;
 
-    // iterate each hashmap, invoke callback if index in use
+    // iterate each hashmap, invoke callback if index in us
     int index;
     for (index = 0; index < map->table_size; index++) {
         if (map->data[index].in_use != 0) {
             callback(map->data[index].key, map->data[index].data);
+            sprintf(info + strlen(info), "%s Flight: %s Seats\n", map->data[index].key, map->data[index].data);
         }
     }
+
+    return (void*) info; //keep track of all info in hash map
+
 } // hashmap_foreach
 
 void free_flight(char * key, void * data) {
@@ -401,7 +407,7 @@ char * process_flight_request(char * input, map_t flight_map) {
 
     if (!(command= strtok_r(input, " ", &input_tokens))) {
 		return "error: cannot proccess server command"; 
-	}
+    }
 
     if (string_equal(command, "QUERY")) {
 		// get flight to query 
@@ -428,14 +434,15 @@ char * process_flight_request(char * input, map_t flight_map) {
     if (string_equal(command, "LIST")) {
         printf("server: listing flights\n");
 
-        hashmap_foreach(flight_map, &print_flight);
+        char * info = (char*) hashmap_foreach(flight_map, &print_flight);
     
-        return "success";
+        return info;
     }
 
     if (string_equal(command, "RESERVE")) {
         char * flight = NULL;
         char * seats = NULL;
+        char * info = (char*)malloc(sizeof(char) * 100); //holder for message
 
         if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
             return "error: cannot process flight to reserve";
@@ -445,11 +452,33 @@ char * process_flight_request(char * input, map_t flight_map) {
             return "error: cannot process seats to reserve";
         }
 
-        printf("server: reserving %s seats on flight %s\n", seats, flight);
+
+
         add_flight(flight_map, flight, seats);
 
-        return "success";
+        sprintf(info, "Reseved %s seats on flight %s", seats, flight); //Format text to be sent back
+
+        return info;
     }
+
+    if (string_equal(command, "RETURN")) {
+      char * flight = NULL;
+      char * seats = NULL;
+
+      if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
+        return "error: cannot process flight to return";
+      }
+
+      if (!(seats = strtok_r(NULL, " ", &input_tokens))) {
+        return "error: cannot process seats to return";
+      }
+      
+      hashmap_foreach(flight_map, &print_flight);
+
+
+
+    }
+
 
 	return "error: cannot recognize command"; 
 } // process_flight_request
