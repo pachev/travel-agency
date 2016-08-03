@@ -23,7 +23,7 @@ void error(char const * buffer) {
 int main(int argc, char * argv[]) {
     // check number of arguments
     if (argc < 3)
-        error("usage: travel_client ip_address out_file\n");
+        error("usage: travel_client ip_address\n");
      
     // assign command line arguments
     char * ip_address = argv[1];
@@ -72,20 +72,21 @@ int main(int argc, char * argv[]) {
         printf("\nclient: enter message to be sent: ");
         fgets(buffer, sizeof(buffer), stdin);
 
-        strtok(buffer, "\n"); // remove \n newline from buffer
+        char * command_token = NULL;
+        char * command = strtok_r(buffer, "\n", &command_token); // remove \n newline from buffer
 
-        // if exit in command
-        if (strstr(buffer, "EXIT")) {
+        // if log off in command
+        if (strstr(command, "LOG_OFF")) {
             printf("\nclient: closing client\n");
             close(client_fd);
             break;
         }
 
         // send input to server
-        if (write(client_fd, buffer, strlen(buffer) + 1) < 0)
+        if (write(client_fd, command, strlen(command) + 1) < 0)
             error("error: writing to socket");
         
-        printf("client: sending %s to server\n", buffer);
+        printf("client: sending %s to server\n", command);
 
         // recieve response from server
         if (read(client_fd, buffer, sizeof(buffer)) < 0)
@@ -93,7 +94,7 @@ int main(int argc, char * argv[]) {
 
         printf("client: read %s from server\n", buffer);
 
-        printf("\nclient: closing client\n");
+        printf("client: closing client\n");
         close(client_fd);
     }
 

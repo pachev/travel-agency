@@ -51,8 +51,7 @@ void free_flight_map_data(map_t flight_map);
 /// @param sockfd socket_info object to tbe initialized
 /// @param ip_address ipv4 addresss
 /// @param port adderess port
-/// @returns 1 if error, 0 otherwise
-int init_inet_socket(socket_info * sockfd, char * ip_address, int port); 
+void init_inet_socket(socket_info * sockfd, char * ip_address, int port); 
 
 /// @brief binds socket info to sockddr object
 /// @param socketinfo socket info source
@@ -61,8 +60,7 @@ void bind_inet_socket(socket_info * sockfd, struct sockaddr_in * socket_address)
 
 /// @brief launches server on @p ports on a thread,
 /// listens on ports [start_port, start_port + no_ports].
-/// @returns 1 if error, 0 otherwise
-int launch_server(socket_info * server, pthread_t * thread);
+void launch_server(socket_info * server, pthread_t * thread);
 
 /// @brief joins server threads, and destroys 
 /// related synchronization objects.
@@ -86,12 +84,6 @@ void error(char * const message) {
     perror(message);
     pthread_exit(NULL);
 }
-
-/// @brief iterates @p map and invokes @p callback with key/value
-/// pair of each map item
-/// @param map hashmap iterated
-/// @param callback function pointer taking as arguments
-void hashmap_foreach(map_t map, void(* callback)(char * key, void * data));
                           
 int main (int argc, char * argv[]) {
     // if not enough arguments
@@ -127,15 +119,9 @@ int main (int argc, char * argv[]) {
         servers[index].map = flight_map;
 
         // initialize inet sockets
-        if (init_inet_socket(&servers[index], ip_address, port) != 0) {
-            printf("error: cannot open socket on %s:%d", ip_address, port);
-            break;
-        }
-
-        // launch servers on sockets
-        if (launch_server(&servers[index], &connection_threads[index]) != 0) {
-            printf("error: cannot launch server on %s:%d", ip_address, port);
-            break;
+        if (init_inet_socket(&servers[index], ip_address, port) == 0) {
+            // launch servers on sockets
+            launch_server(&servers[index], &connection_threads[index]);
         }
     }
 
@@ -169,7 +155,7 @@ int main (int argc, char * argv[]) {
     hashmap_free(flight_map);
 
     return 0; 
-} // main
+}
 
 void add_flight(map_t flight_map, char * flight_token, char * seats_token) {
     // assign persistent memory for hash node
@@ -188,9 +174,9 @@ void add_flight(map_t flight_map, char * flight_token, char * seats_token) {
     pthread_mutex_unlock(&flight_map_mutex);
 
     printf("server: reserving %s seats on flight %s\n", seats, flight);
-} // add_flight
+}
 
-void hashmap_foreach(map_t flight_map, void(* callback)(char *, void *)) {
+void  free_flight_map_data(map_t flight_map) {
     // data stuctures used to access hashmap internals 
     struct hashmap_element {
         char* key;
@@ -206,23 +192,16 @@ void hashmap_foreach(map_t flight_map, void(* callback)(char *, void *)) {
 
     struct hashmap_map * map = (struct hashmap_map *) flight_map;
 
-    // iterate each hashmap, invoke callback if index in use
+    // iterate hashmap internal table and free data
     int index;
     for (index = 0; index < map->table_size; index++) {
         if (map->data[index].in_use != 0) {
-            callback(map->data[index].key, map->data[index].data);
+            map->data[index].in_use = 0;
+            free(map->data[index].key);
+            free(map->data[index].data);
         }
     }
-} // hashmap_foreach
-
-void free_flight(char * key, void * data) {
-    free(key);
-    free(data);
 }
-
-void  free_flight_map_data(map_t flight_map) {
-    hashmap_foreach(flight_map, &free_flight);
-} // free_flight_map_data
 
 void * server_handler(void * handler_args) {
     // retrieve socket_info from args
@@ -237,7 +216,7 @@ void * server_handler(void * handler_args) {
     if (listen(inet_socket->fd, MAX_CLIENTS) < 0) {
         error("error: listening to connections");
     }
-    printf("\n%d: listening on %s:%d\n", inet_socket->port, inet_socket->ip_address, inet_socket->port);
+    printf("\nserver: listening on %s:%d\n", inet_socket->ip_address, inet_socket->port);
 
     // TODO: replace 1 with semaphore
     while (inet_socket->enabled) {
@@ -257,7 +236,7 @@ void * server_handler(void * handler_args) {
         // get ip address string from address object
         inet_ntop(AF_INET, &incoming_address->sin_addr, incoming_ip_address, sizeof(incoming_ip_address));
 
-        printf("%d: incoming connection from %s:%d\n", inet_socket->port, incoming_ip_address, incoming_port);
+        printf("server: incoming connection from %s:%d\n", incoming_ip_address, incoming_port);
         
         // holds incoming data from socket
         int const BUFFER_SIZE = 256;
@@ -268,7 +247,7 @@ void * server_handler(void * handler_args) {
             error("error: reading from connection");
         }
 
-        printf("%d: read %s from client\n", inet_socket->port, input);
+        printf("server: read %s from client\n", input);
         
         // exit command breaks loop
         if (string_equal(input, "EXIT")) {
@@ -283,7 +262,7 @@ void * server_handler(void * handler_args) {
             error("error: writing to connection");
         }
 
-        printf("%d: sent %s to client\n", inet_socket->port, current_data);
+        printf("server: sent %s to client\n", current_data);
 
         // close socket
         close(clientfd);
@@ -291,10 +270,10 @@ void * server_handler(void * handler_args) {
     
     // close server socket
     close(inet_socket->fd);
-    printf("%d: exiting\n", inet_socket->port);
+    printf("server: exiting\n");
     
     pthread_exit(handler_args);
-} // server_handler
+}
 
 void close_servers(socket_info * servers, pthread_t * threads, int no_ports) {
     int index;
@@ -304,8 +283,8 @@ void close_servers(socket_info * servers, pthread_t * threads, int no_ports) {
         pthread_join(threads[index], NULL);
     }
 
-    pthread_mutex_destroy(&flight_map_mutex);
-} // close_servers
+    //pthread_mutex_destroy(&flight_map_mutex);
+}
 
 int init_inet_socket(socket_info * inet_socket, char * ip_address, int port) {
     // enable socket
@@ -347,49 +326,13 @@ int init_inet_socket(socket_info * inet_socket, char * ip_address, int port) {
     }
 
     return 0;
-} // init_inet_socket
+}
 
-int launch_server(socket_info * server, pthread_t * thread) {
-    /// initialize multithreading objects
-    pthread_mutex_init(&flight_map_mutex, NULL);
-
-    if (pthread_create(thread, NULL, server_handler, server) == 0) {
-        printf("server: started server on port %d\n", server->port);
-        return 0;
-    }
-
-    return 1;
-} // launch_server
-
-void read_flight_map_file(char * file_name, map_t flight_map) {
-    // read input data
-    FILE * file;
-    if (!(file = fopen(file_name, "ra+"))) {
-        perror("error: cannot open input file"); 
-        exit(1);
-    }
-
-    // read all lines from input
-    size_t length = 0;
-    ssize_t read;
-    char * input;
-    while ((read = getline(&input, &length, file)) != -1) {
-        // get tokens from input
-       	char * input_tokens = NULL;
-	    char * flight = strtok_r(input, " ", &input_tokens);
-        char * seats = strtok_r(NULL, "\n", &input_tokens);
-
-        add_flight(flight_map, flight, seats);
-    }
-} // read_flight_map_file
 
 int string_equal(char const * string, char const * other_string) {
     return strcmp(string, other_string) == 0; 
-} // string_equal
-
-void print_flight(char * flight, void * seats) {
-    printf("%s %s\n", flight, seats);
 }
+
 
 char * process_flight_request(char * input, map_t flight_map) {
     // parse input for commands
@@ -425,24 +368,16 @@ char * process_flight_request(char * input, map_t flight_map) {
 		return seats;
     }	
 
-    if (string_equal(command, "LIST")) {
-        printf("server: listing flights\n");
-
-        hashmap_foreach(flight_map, &print_flight);
-    
-        return "success"
-    }
-
     if (string_equal(command, "RESERVE")) {
         char * flight = NULL;
         char * seats = NULL;
 
         if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
-            return "error: cannot process flight to reserve";
+            return "error cannot process flight to reserve";
         }
 
         if (!(seats = strtok_r(NULL, " ", &input_tokens))) {
-            return "error: cannot process seats to reserve";
+            return "error cannot process seats to reserve";
         }
 
         printf("server: reserving %s seats on flight %s\n", seats, flight);
@@ -452,4 +387,35 @@ char * process_flight_request(char * input, map_t flight_map) {
     }
 
 	return "error: cannot recognize command"; 
-} // process_flight_request
+}
+
+void launch_server(socket_info * server, pthread_t * thread) {
+    /// initialize multithreading objects
+    pthread_mutex_init(&flight_map_mutex, NULL);
+
+    if (pthread_create(thread, NULL, server_handler, server) == 0) {
+        printf("server: started server on port %d\n", server->port);
+    }
+}
+
+void read_flight_map_file(char * file_name, map_t flight_map) {
+    // read input data
+    FILE * file;
+    if (!(file = fopen(file_name, "ra+"))) {
+        perror("error: cannot open input file"); 
+        exit(1);
+    }
+
+    // read all lines from input
+    size_t length = 0;
+    ssize_t read;
+    char * input;
+    while ((read = getline(&input, &length, file)) != -1) {
+        // get tokens from input
+       	char * input_tokens = NULL;
+	    char * flight = strtok_r(input, " ", &input_tokens);
+        char * seats = strtok_r(NULL, "\n", &input_tokens);
+
+        add_flight(flight_map, flight, seats);
+    }
+}
