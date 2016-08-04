@@ -20,7 +20,6 @@
 
 // Synchronizes access to flight_map
 pthread_mutex_t flight_map_mutex;
-
 /// @brief contains socket information
 /// includes file descriptor port pair.
 typedef struct {
@@ -197,10 +196,11 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
      //0 is not found, 1 is ok , 2 is full 
 
     size_t const MAX_SEATS = 40;
-    char * flight = malloc(sizeof(char) * strlen(flight_token) + 1);
-    char * seats = malloc(sizeof(char) * strlen(seats_token) + 1);
     int curr_seat_value = 0;
     char *checking;
+    char * flight = malloc(sizeof(char) * strlen(flight_token) + 1);
+    char * seats = malloc(sizeof(char) * strlen(seats_token) + 1);
+    char * new_seats = malloc(sizeof(char) * strlen(seats_token) + 1);
     
    
     int map_find_result = 0; 
@@ -217,15 +217,19 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
     if(map_find_result == MAP_OK) {
 
         curr_seat_value = atoi(checking);
+        curr_seat_value -= atoi(seats);
         if(curr_seat_value < 0)
             return 2;
 
+        sprintf(new_seats, "%d", curr_seat_value);
+
         pthread_mutex_lock(&flight_map_mutex);
-        assert(hashmap_put(flight_map, flight, seats) == MAP_OK);
+        assert(hashmap_remove(flight_map, flight) == MAP_OK);
+        assert(hashmap_put(flight_map, flight, new_seats) == MAP_OK);
         pthread_mutex_unlock(&flight_map_mutex);
 
 
-        printf("server: Reserved %s on flight %s. Updated Seats: %d   Retrieved: %d", seats, flight, curr_seat_value, atoi(checking));
+        printf("server: Reserved %s on flight %s. Updated Seats: %d   Retrieved: %d\n", seats, flight, curr_seat_value, atoi(checking));
         return 1;
         
     }
