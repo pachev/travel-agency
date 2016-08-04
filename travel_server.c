@@ -200,7 +200,7 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
     char * flight = malloc(sizeof(char) * strlen(flight_token) + 1);
     char * seats = malloc(sizeof(char) * strlen(seats_token) + 1);
     int curr_seat_value = 0;
-    char *checking = malloc(sizeof(char) * strlen(seats_token + 1));
+    char *checking;
     
    
     int map_find_result = 0; 
@@ -211,7 +211,7 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
 
     // acquire lock to flight_map
     pthread_mutex_lock(&flight_map_mutex);
-    map_find_result = hashmap_get(flight_map, flight, (any_t*)checking); 
+    map_find_result = hashmap_get(flight_map, flight, (void **)&checking); 
     pthread_mutex_unlock(&flight_map_mutex);
 
     if(map_find_result == MAP_OK) {
@@ -225,7 +225,7 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
         pthread_mutex_unlock(&flight_map_mutex);
 
 
-        printf("server: Reserved %s on flight %s. Updated Seats: %d   Retrieved: %s", seats, flight, curr_seat_value, checking);
+        printf("server: Reserved %s on flight %s. Updated Seats: %d   Retrieved: %d", seats, flight, curr_seat_value, atoi(checking));
         return 1;
         
     }
