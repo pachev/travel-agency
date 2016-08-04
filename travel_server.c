@@ -83,9 +83,9 @@ int string_equal(char const * string, char const * other_string);
 /// pair of each map item
 /// @param map hashmap iterated
 /// @param callback function pointer taking as arguments
-void * hashmap_foreach(map_t map, void(* callback)(char * key, void * data));
+void * hashmap_foreach(map_t map, void(* callback)(char * key, void * data, void * args));
 
-void * hashmap_foreach_n(map_t map, int n,  void(* callback)(char * key, void * data));
+void * hashmap_foreach_n(map_t map, int n,  void(* callback)(char * key, void * data, void * args));
 
 /// @brief error handler
 /// prints error and exits with error status
@@ -94,11 +94,6 @@ void error(char * const message) {
     pthread_exit(NULL);
 }
 
-/// @brief iterates @p map and invokes @p callback with key/value
-/// pair of each map item
-/// @param map hashmap iterated
-/// @param callback function pointer taking as arguments
-void * hashmap_foreach(map_t map, void(* callback)(char * key, void * data));
 
                           
 int main (int argc, char * argv[]) {
@@ -238,7 +233,7 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
         return 0;
 }
 
-void * hashmap_foreach(map_t flight_map, void(* callback)(char *, void *)) {
+void * hashmap_foreach(map_t flight_map, void(* callback)(char *, void *, void *)) {
 
     // data stuctures used to access hashmap internals 
     struct hashmap_element {
@@ -262,15 +257,14 @@ void * hashmap_foreach(map_t flight_map, void(* callback)(char *, void *)) {
     int index;
     for (index = 0; index < map->table_size; index++) {
         if (map->data[index].in_use != 0) {
-            callback(map->data[index].key, map->data[index].data);
-            sprintf(info + strlen(info), "%s Flight: %s Seats\n", map->data[index].key, (char*)map->data[index].data);
+            callback(map->data[index].key, map->data[index].data, (void*) info);
         }
     }
 
     return(void*) info;
 }
 
-void * hashmap_foreach_n(map_t flight_map, int n, void(* callback)(char *, void *)) {
+void * hashmap_foreach_n(map_t flight_map, int n, void(* callback)(char *, void *, void *)) {
 
     // data stuctures used to access hashmap internals 
     struct hashmap_element {
@@ -296,8 +290,7 @@ void * hashmap_foreach_n(map_t flight_map, int n, void(* callback)(char *, void 
     for (int i = 0; i < map->table_size; i++) {
         if (map->data[i].in_use != 0) {
             count++;
-            callback(map->data[i].key, map->data[i].data);
-            sprintf(info + strlen(info), "%s Flight: %s Seats\n", map->data[i].key, (char*)map->data[i].data);
+            callback(map->data[i].key, map->data[i].data, (void*)info);
             if(count >=n)
                 break;
         }
@@ -377,7 +370,7 @@ void * server_handler(void * handler_args) {
             error("error: writing to connection");
         }
 
-        printf("%d: sent %s to client\n", inet_socket->port, current_data);
+        printf("%d: sent message to client\n", inet_socket->port);
 
         // close socket
         close(clientfd);
@@ -481,13 +474,16 @@ int string_equal(char const * string, char const * other_string) {
     return strcmp(string, other_string) == 0; 
 } // string_equal
 
-void print_flight(char * flight, void * seats) {
+void print_flight(char * flight, void * seats, void * args) {
     printf("%s %s\n", flight, seats);
+    sprintf((args + strlen((char *) args)),"%s %s\n", flight, seats);
 }
 
-void print_avail_flight(char * flight, void * seats) {
-    if(atoi(seats))
+void print_avail_flight(char * flight, void * seats, void * args) {
+    if(atoi(seats)) {
         printf("%s %d\n", flight, atoi(seats));
+        sprintf((args + strlen((char *) args)),"%s %s\n", flight, seats);
+    }
     else
         return;
 }
@@ -543,7 +539,7 @@ char * process_flight_request(char * input, map_t flight_map) {
         return info;
     }
 
-    if (string_equal(command, "LIST_AVAILABLE")) {
+    if (string_equal(command, "LIST_AVAILABLE") || string_equal(command, "L_A")) {
         printf("server: listing flights\n");
 
         char *info = NULL;
@@ -554,9 +550,7 @@ char * process_flight_request(char * input, map_t flight_map) {
 		}
         else {
 
-            return "HELLO";
-            //TODO FIX undefine function error
-            //info = (char*) hashmap_foreach_n(flight_map, atoi(n), &print_flight);
+            info = (char*) hashmap_foreach_n(flight_map, atoi(n), &print_avail_flight);
         }
     
         return info;
