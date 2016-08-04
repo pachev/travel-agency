@@ -216,11 +216,12 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
 
     // acquire lock to flight_map
     pthread_mutex_lock(&flight_map_mutex);
-    map_find_result = hashmap_get(flight_map, flight, (char*)checking); 
+    map_find_result = hashmap_get(flight_map, flight, (any_t*)checking); 
     pthread_mutex_unlock(&flight_map_mutex);
 
     if(map_find_result == MAP_OK) {
 
+        curr_seat_value = atoi(checking);
         if(curr_seat_value < 0)
             return 2;
 
@@ -229,7 +230,7 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
         pthread_mutex_unlock(&flight_map_mutex);
 
 
-        printf("server: Reserved %s on flight %s. Updated Seats: %d   Retrieved: %s", seats, flight, &curr_seat_value, checking);
+        printf("server: Reserved %s on flight %s. Updated Seats: %d   Retrieved: %s", seats, flight, curr_seat_value, checking);
         return 1;
         
     }
@@ -266,6 +267,9 @@ void * hashmap_foreach(map_t flight_map, void(* callback)(char *, void *)) {
         }
     }
 
+    return(void*) info;
+}
+
 void * hashmap_foreach_n(map_t flight_map, int n, void(* callback)(char *, void *)) {
 
     // data stuctures used to access hashmap internals 
@@ -283,14 +287,19 @@ void * hashmap_foreach_n(map_t flight_map, int n, void(* callback)(char *, void 
 
     char *info = malloc(sizeof(char) * 256);//TODO fix possible memory issues
     info[0] = '\n';
+    
+    int count = 0;
 
     struct hashmap_map * map = (struct hashmap_map *) flight_map;
 
     // iterate each hashmap, invoke callback if index in us
-    for (n = 0; n < map->table_size; n++) {
-        if (map->data[n].in_use != 0) {
-            callback(map->data[n].key, map->data[n].data);
-            sprintf(info + strlen(info), "%s Flight: %s Seats\n", map->data[n].key, (char*)map->data[n].data);
+    for (int i = 0; i < map->table_size; i++) {
+        if (map->data[i].in_use != 0) {
+            count++;
+            callback(map->data[i].key, map->data[i].data);
+            sprintf(info + strlen(info), "%s Flight: %s Seats\n", map->data[i].key, (char*)map->data[i].data);
+            if(count >=n)
+                break;
         }
     }
 
@@ -298,9 +307,7 @@ void * hashmap_foreach_n(map_t flight_map, int n, void(* callback)(char *, void 
 
 } // hashmap_foreach_n to iterate over first n elements
 
-    return (void*) info; //keep track of all info in hash map
 
-} // hashmap_foreach
 
 void free_flight(char * key, void * data) {
     free(key);
@@ -478,6 +485,13 @@ void print_flight(char * flight, void * seats) {
     printf("%s %s\n", flight, seats);
 }
 
+void print_avail_flight(char * flight, void * seats) {
+    if(atoi(seats))
+        printf("%s %d\n", flight, atoi(seats));
+    else
+        return;
+}
+
 char * process_flight_request(char * input, map_t flight_map) {
     // parse input for commands
     // for now we're just taking the direct command
@@ -516,14 +530,33 @@ char * process_flight_request(char * input, map_t flight_map) {
         printf("server: listing flights\n");
 
         char *info = NULL;
-		char * n = NULL; 
+		char *n = strtok_r(NULL, " ", &input_tokens);
 
-		if (!(n = strtok_r(NULL, " ", &input_tokens))) {
+		if (!(n)) {
             info = (char*) hashmap_foreach(flight_map, &print_flight);
 		}
         else {
 
             info = (char*) hashmap_foreach_n(flight_map, atoi(n), &print_flight);
+        }
+    
+        return info;
+    }
+
+    if (string_equal(command, "LIST_AVAILABLE")) {
+        printf("server: listing flights\n");
+
+        char *info = NULL;
+		char * n = NULL; 
+
+		if (!(n = strtok_r(NULL, " ", &input_tokens))) {
+            info = (char*) hashmap_foreach(flight_map, &print_avail_flight);
+		}
+        else {
+
+            return "HELLO";
+            //TODO FIX undefine function error
+            //info = (char*) hashmap_foreach_n(flight_map, atoi(n), &print_flight);
         }
     
         return info;
