@@ -79,6 +79,14 @@ void read_flight_map_file(char * file_name, map_t flight_map);
 /// @returns 1 if true, false otherwise.
 int string_equal(char const * string, char const * other_string);
 
+/// @brief iterates @p map and invokes @p callback with key/value
+/// pair of each map item
+/// @param map hashmap iterated
+/// @param callback function pointer taking as arguments
+void * hashmap_foreach(map_t map, void(* callback)(char * key, void * data));
+
+void * hashmap_foreach_n(map_t map, int n,  void(* callback)(char * key, void * data));
+
 /// @brief error handler
 /// prints error and exits with error status
 void error(char * const message) {
@@ -254,9 +262,41 @@ void * hashmap_foreach(map_t flight_map, void(* callback)(char *, void *)) {
     for (index = 0; index < map->table_size; index++) {
         if (map->data[index].in_use != 0) {
             callback(map->data[index].key, map->data[index].data);
-            sprintf(info + strlen(info), "%s Flight: %s Seats\n", map->data[index].key, map->data[index].data);
+            sprintf(info + strlen(info), "%s Flight: %s Seats\n", map->data[index].key, (char*)map->data[index].data);
         }
     }
+
+void * hashmap_foreach_n(map_t flight_map, int n, void(* callback)(char *, void *)) {
+
+    // data stuctures used to access hashmap internals 
+    struct hashmap_element {
+        char* key;
+        int in_use;
+        any_t data;
+    };
+
+    struct hashmap_map {
+        int table_size;
+        int size;
+        struct hashmap_element *data;
+    };
+
+    char *info = malloc(sizeof(char) * 256);//TODO fix possible memory issues
+    info[0] = '\n';
+
+    struct hashmap_map * map = (struct hashmap_map *) flight_map;
+
+    // iterate each hashmap, invoke callback if index in us
+    for (n = 0; n < map->table_size; n++) {
+        if (map->data[n].in_use != 0) {
+            callback(map->data[n].key, map->data[n].data);
+            sprintf(info + strlen(info), "%s Flight: %s Seats\n", map->data[n].key, (char*)map->data[n].data);
+        }
+    }
+
+    return (void*) info; //keep track of all info in hash map
+
+} // hashmap_foreach_n to iterate over first n elements
 
     return (void*) info; //keep track of all info in hash map
 
@@ -475,7 +515,16 @@ char * process_flight_request(char * input, map_t flight_map) {
     if (string_equal(command, "LIST")) {
         printf("server: listing flights\n");
 
-        char * info = (char*) hashmap_foreach(flight_map, &print_flight);
+        char *info = NULL;
+		char * n = NULL; 
+
+		if (!(n = strtok_r(NULL, " ", &input_tokens))) {
+            info = (char*) hashmap_foreach(flight_map, &print_flight);
+		}
+        else {
+
+            info = (char*) hashmap_foreach_n(flight_map, atoi(n), &print_flight);
+        }
     
         return info;
     }
@@ -520,21 +569,39 @@ char * process_flight_request(char * input, map_t flight_map) {
     if (string_equal(command, "RETURN")) {
       char * flight = NULL;
       char * seats = NULL;
+      char * info = malloc(sizeof(char) * 256);
 
       if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
         return "error: cannot process flight to return";
       }
 
       if (!(seats = strtok_r(NULL, " ", &input_tokens))) {
-        return "error: cannot process seats to return";
-      }
-      
+        return "error: cannot process seats to return"; }
 
+    //TODO figure out how to retrieve value from hashmap
+    //
+    int result = reserve_flight(flight_map, flight, seats);
 
+    switch (result) {
+        case 0:
+            sprintf(info, "An error occured"); //Format text to be sent back
+            break;
+        case 1:
+            sprintf(info, "Reserved %s seats on flight %s", seats, flight); //Format text to be sent back
+            break;
+        case 2:
+            sprintf(info, "Flight is Full"); //Format text to be sent back
+            break;
 
+        default:
+            sprintf(info, "An error occured"); //Format text to be sent back
+
+    }
+
+    return info;
 
     }
 
 
-	return "error: cannot recognize command"; 
+    return "error: cannot recognize command"; 
 } // process_flight_request
