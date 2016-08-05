@@ -2,11 +2,9 @@
 ###################
 *.com
 *.class
-*.dll
-*.exe
 *.o
 *.so
-bin/
+bin/*
 
 # OS generated files #
 ######################
@@ -17,3 +15,6 @@ bin/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+./bin/traverl_server
+./bin/traverl_client

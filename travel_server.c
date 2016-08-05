@@ -17,6 +17,8 @@
 
 #include "c_hashmap/hashmap.h"
 
+#define MAX_SEATS 40
+
 
 // Synchronizes access to flight_map
 pthread_mutex_t flight_map_mutex;
@@ -195,7 +197,6 @@ void add_flight(map_t flight_map, char * flight_token, char * seats_token) {
 int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
      //0 is not found, 1 is ok , 2 is full 
 
-    size_t const MAX_SEATS = 40;
     int curr_seat_value = 0;
     char *checking;
     char * flight = malloc(sizeof(char) * strlen(flight_token) + 1);
@@ -219,6 +220,51 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
         curr_seat_value = atoi(checking);
         curr_seat_value -= atoi(seats);
         if(curr_seat_value < 0)
+            return 2;
+
+        sprintf(new_seats, "%d", curr_seat_value);
+
+        pthread_mutex_lock(&flight_map_mutex);
+        assert(hashmap_remove(flight_map, flight) == MAP_OK);
+        assert(hashmap_put(flight_map, flight, new_seats) == MAP_OK);
+        pthread_mutex_unlock(&flight_map_mutex);
+
+
+        printf("server: Reserved %s on flight %s. Updated Seats: %d   Retrieved: %d\n", seats, flight, curr_seat_value, atoi(checking));
+        return 1;
+        
+    }
+    else 
+        return 0;
+}
+
+
+int return_flight(map_t flight_map, char * flight_token, char * seats_token) {
+     //0 is not found, 1 is ok , 2 is full 
+
+    int curr_seat_value = 0;
+    char *checking;
+    char * flight = malloc(sizeof(char) * strlen(flight_token) + 1);
+    char * seats = malloc(sizeof(char) * strlen(seats_token) + 1);
+    char * new_seats = malloc(sizeof(char) * strlen(seats_token) + 1);
+    
+   
+    int map_find_result = 0; 
+    //
+    // copy temp strings into memory
+    strcpy(flight, flight_token);
+    strcpy(seats, seats_token);
+
+    // acquire lock to flight_map
+    pthread_mutex_lock(&flight_map_mutex);
+    map_find_result = hashmap_get(flight_map, flight, (void **)&checking); 
+    pthread_mutex_unlock(&flight_map_mutex);
+
+    if(map_find_result == MAP_OK) {
+
+        curr_seat_value = atoi(checking);
+        curr_seat_value += atoi(seats);
+        if(curr_seat_value  > MAX_SEATS)
             return 2;
 
         sprintf(new_seats, "%d", curr_seat_value);
@@ -306,7 +352,7 @@ void * hashmap_foreach_n(map_t flight_map, int n, void(* callback)(char *, void 
 
 
 
-void free_flight(char * key, void * data) {
+void free_flight(char * key, void * data, void * info) {
     free(key);
     free(data);
 }
@@ -609,19 +655,17 @@ char * process_flight_request(char * input, map_t flight_map) {
       if (!(seats = strtok_r(NULL, " ", &input_tokens))) {
         return "error: cannot process seats to return"; }
 
-    //TODO figure out how to retrieve value from hashmap
-    //
-    int result = reserve_flight(flight_map, flight, seats);
+    int result = return_flight(flight_map, flight, seats);
 
     switch (result) {
         case 0:
             sprintf(info, "An error occured"); //Format text to be sent back
             break;
         case 1:
-            sprintf(info, "Reserved %s seats on flight %s", seats, flight); //Format text to be sent back
+            sprintf(info, "Returned %s seats on flight %s", seats, flight); //Format text to be sent back
             break;
         case 2:
-            sprintf(info, "Flight is Full"); //Format text to be sent back
+            sprintf(info, "Returning Too many flights, stop trying to cheat the system"); //Format text to be sent back
             break;
 
         default:
