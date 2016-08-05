@@ -26,9 +26,11 @@ pthread_mutex_t flight_map_mutex;
 /// @brief contains socket information
 /// includes file descriptor port pair.
 typedef struct {
-    int loggedon;
+    bool loggedon;
     char * username;
     char * message;
+    bool in_chat;
+    
 
 } ClientUser;
 
@@ -38,6 +40,7 @@ typedef struct {
     char * ip_address;
     int enabled;
     map_t * map;
+    int clientfd;
     ClientUser * c_u;
 } socket_info;
 
@@ -125,6 +128,7 @@ int main (int argc, char * argv[]) {
     // initialize flight map
     // Holds flight/seat pairs of clients
     map_t flight_map = hashmap_new(); 
+    map_t user_map = hashmap_new(); 
 
     read_flight_map_file(in_filename, flight_map);
 
@@ -183,6 +187,7 @@ int main (int argc, char * argv[]) {
 
     // free hashmap handle
     hashmap_free(flight_map);
+    hashmap_free(user_map);
 
     return 0; 
 } // main
@@ -377,8 +382,6 @@ void * server_handler(void * handler_args) {
     // retrieve socket_info from args
     socket_info * inet_socket = (socket_info *) handler_args;
     
-    int clientfd;
-        
     // maximum number of input connections queued at a time
     int const MAX_CLIENTS = 10;
 
@@ -395,7 +398,7 @@ void * server_handler(void * handler_args) {
         
         // accept incoming connection from client
         socklen_t client_length = sizeof(client_address);
-        if ((clientfd = accept(inet_socket->fd, (struct sockaddr *) &client_address, &client_length)) < 0) {
+        if ((inet_socket->clientfd = accept(inet_socket->fd, (struct sockaddr *) &client_address, &client_length)) < 0) {
             error("error: accepting connection");
         }
 
@@ -413,7 +416,7 @@ void * server_handler(void * handler_args) {
         char input[BUFFER_SIZE];
 
         // read data sent from socket into input
-        if (read(clientfd, input, sizeof(input)) < 0) {
+        if (read(inet_socket->clientfd, input, sizeof(input)) < 0) {
             error("error: reading from connection");
         }
 
@@ -428,14 +431,14 @@ void * server_handler(void * handler_args) {
         char * current_data = process_flight_request(input, inet_socket);
 
         // write to connection with reply
-        if (write(clientfd, current_data, strlen(current_data) + 1) < 0) {
+        if (write(inet_socket->clientfd, current_data, strlen(current_data) + 1) < 0) {
             error("error: writing to connection");
         }
 
         printf("%d: sent response to client\n", inet_socket->port);
 
         // close socket
-        close(clientfd);
+        close(inet_socket->clientfd);
     }
     
     // close server socket
@@ -554,6 +557,63 @@ void print_avail_flight(char * flight, void * seats, void * args) {
         return;
 }
 
+char * process_chat_request(socket_info * soc_info) {
+    printf("===============================================\nWelcome To the Chat\n==================================================");
+
+
+
+    while (soc_info->enabled) {
+        // socket address information
+
+        // holds incoming data from socket
+        int const BUFFER_SIZE = 256;
+        char * command = NULL; // used to save tokens when splitting string  
+        char * message = NULL; // used to save tokens when splitting string  
+        char * input_tokens = NULL;
+        char input[BUFFER_SIZE];
+        ClientUser * c_u = soc_info->c_u; 
+
+        // read data sent from socket into input
+        if (read(soc_info->clientfd, input, sizeof(input)) < 0) {
+            error("error: reading from connection");
+        }
+
+        printf("%d: read %s for chat room\n", soc_info->port, input);
+        
+        // exit command breaks loop
+        if (string_equal(input, "EXIT CHAT")) {
+            break;
+        }
+
+        //Empty command reprompts
+        if (!(command= strtok_r(input, " ", &input_tokens))) {
+            return "error: cannot proccess server command"; 
+        }
+
+        // process commands
+        if (string_equal(command, "TEXT")) {
+
+            if (!(message = strtok_r(NULL, " ", &input_tokens))) {
+                return "No message to process";
+            }
+
+            return message;
+
+
+        }
+
+
+        // write to connection with reply
+        if (write(soc_info->clientfd, input, strlen(input) + 1) < 0) {
+            error("error: writing to connection");
+        }
+
+        printf("%d: sent chat message to clients\n", soc_info->port);
+
+    }
+    
+    return "Exiting chat, Goodbye!";
+}
 char * process_flight_request(char * input, socket_info * soc_info) {
     // parse input for commands
     // for now we're just taking the direct command
@@ -567,6 +627,7 @@ char * process_flight_request(char * input, socket_info * soc_info) {
     if (!(command= strtok_r(input, " ", &input_tokens))) {
 		return "error: cannot proccess server command"; 
     }
+
 
     if (string_equal(command, "LOGON")) {
         if(c_u->loggedon)
@@ -587,9 +648,32 @@ char * process_flight_request(char * input, socket_info * soc_info) {
 
     }
 
+    if (string_equal(command, "ENTER")) {
+        if(!c_u->loggedon)
+            return "You need to be looged on to perform this action";
+
+        char * chat = malloc(sizeof(char) * 100); 
+        char * info = malloc(sizeof(char) * 100); 
+
+		if (!(info = strtok_r(NULL, " ", &input_tokens))) {
+			return "Command Unavailable";
+		}
+
+        if(string_equal(info, "CHAT")) {
+           chat = process_chat_request(soc_info);
+           return chat;
+
+        }
+
+
+        return chat;
+
+
+    }
+
     if (string_equal(command, "QUERY")) {
 
-        if(c_u->loggedon)
+        if(!c_u->loggedon)
             return "You need to be looged on to perform this action";
 
 		// get flight to query 
@@ -746,6 +830,7 @@ ClientUser* ClientUser_new() {
 
     c->message = (char*) malloc(sizeof(char) * 256);
     c->loggedon = false;
+    c->in_chat = false;
     c->username = (char*) malloc(sizeof(char) * 100);
 
 
