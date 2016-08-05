@@ -38,11 +38,15 @@ typedef struct {
     int fd;
     int port;
     char * ip_address;
+    bool chatmode;
     int enabled;
     map_t * map;
     int clientfd;
     ClientUser * c_u;
 } socket_info;
+
+
+char * process_chat_request(char * input, socket_info * soc_info);
 
 
 /// @brief accepts socket connection handler
@@ -391,10 +395,11 @@ void * server_handler(void * handler_args) {
     }
     printf("\n%d: listening on %s:%d\n", inet_socket->port, inet_socket->ip_address, inet_socket->port);
 
-    // TODO: replace 1 with semaphore
+
     while (inet_socket->enabled) {
         // socket address information
         struct sockaddr_in client_address;
+        char * current_data = (char*) malloc(sizeof(char) * 256);
         
         // accept incoming connection from client
         socklen_t client_length = sizeof(client_address);
@@ -421,14 +426,18 @@ void * server_handler(void * handler_args) {
         }
 
         printf("%d: read %s from client\n", inet_socket->port, input);
+
+        if(inet_socket->chatmode)
+            current_data = process_chat_request(input, inet_socket); //process chat commands
+        else
+            current_data = process_flight_request(input, inet_socket); //process commands
+
+        
         
         // exit command breaks loop
         if (string_equal(input, "EXIT")) {
             break;
         }
-
-        // process commands
-        char * current_data = process_flight_request(input, inet_socket);
 
         // write to connection with reply
         if (write(inet_socket->clientfd, current_data, strlen(current_data) + 1) < 0) {
@@ -466,6 +475,7 @@ int init_inet_socket(socket_info * inet_socket, char * ip_address, int port) {
     
     //handle ClientUser
     inet_socket->c_u = ClientUser_new();
+    inet_socket->chatmode = false;
 
 
     // copy ip_address to socket_info object
@@ -557,62 +567,39 @@ void print_avail_flight(char * flight, void * seats, void * args) {
         return;
 }
 
-char * process_chat_request(socket_info * soc_info) {
-    printf("===============================================\nWelcome To the Chat\n==================================================");
+char * process_chat_request(char * input, socket_info * soc_info) {
+    printf("====================\nChat Room\n======================\n");
+    char * input_tokens = NULL; // used to save tokens when splitting string  
+    char * command = NULL; 
+    char * message = NULL; 
 
+    ClientUser * c_u = soc_info->c_u; 
 
+    if (!(command= strtok_r(input, " ", &input_tokens))) {
+		return "error: cannot proccess chat command"; 
+    }
 
-    while (soc_info->enabled) {
-        // socket address information
+    if (string_equal(command, "TEXT")) {
 
-        // holds incoming data from socket
-        int const BUFFER_SIZE = 256;
-        char * command = NULL; // used to save tokens when splitting string  
-        char * message = NULL; // used to save tokens when splitting string  
-        char * input_tokens = NULL;
-        char input[BUFFER_SIZE];
-        ClientUser * c_u = soc_info->c_u; 
+        char * info = malloc(sizeof(char) * 100 + 1); 
 
-        // read data sent from socket into input
-        if (read(soc_info->clientfd, input, sizeof(input)) < 0) {
-            error("error: reading from connection");
-        }
+		if (!(message= strtok_r(NULL, "\0", &input_tokens))) {
 
-        printf("%d: read %s for chat room\n", soc_info->port, input);
-        
-        // exit command breaks loop
-        if (string_equal(input, "EXIT CHAT")) {
-            break;
-        }
+			return "Please enter a message";
+		}
 
-        //Empty command reprompts
-        if (!(command= strtok_r(input, " ", &input_tokens))) {
-            return "error: cannot proccess server command"; 
-        }
+        strcpy(c_u->message, message);
 
-        // process commands
-        if (string_equal(command, "TEXT")) {
+        sprintf(info, "%s: %s", c_u->username, c_u->message);
 
-            if (!(message = strtok_r(NULL, " ", &input_tokens))) {
-                return "No message to process";
-            }
+        return info;
 
-            return message;
-
-
-        }
-
-
-        // write to connection with reply
-        if (write(soc_info->clientfd, input, strlen(input) + 1) < 0) {
-            error("error: writing to connection");
-        }
-
-        printf("%d: sent chat message to clients\n", soc_info->port);
 
     }
+
+
     
-    return "Exiting chat, Goodbye!";
+    return "Command Not Recognized";
 }
 char * process_flight_request(char * input, socket_info * soc_info) {
     // parse input for commands
@@ -621,6 +608,7 @@ char * process_flight_request(char * input, socket_info * soc_info) {
 
     char * input_tokens = NULL; // used to save tokens when splitting string  
     char * command = NULL; 
+    char * username = NULL; 
     map_t flight_map = soc_info->map;
     ClientUser * c_u = soc_info->c_u; 
 
@@ -636,9 +624,11 @@ char * process_flight_request(char * input, socket_info * soc_info) {
 
         char * info = malloc(sizeof(char) * 100); 
 
-		if (!(c_u->username = strtok_r(NULL, " ", &input_tokens))) {
+		if (!(username = strtok_r(NULL, " ", &input_tokens))) {
 			return "Please enter a username ";
 		}
+
+        strcpy(c_u->username, username);
         c_u->loggedon = true;
         sprintf(info, "Sucessfully logged on as %s", c_u->username);
 
@@ -652,7 +642,6 @@ char * process_flight_request(char * input, socket_info * soc_info) {
         if(!c_u->loggedon)
             return "You need to be looged on to perform this action";
 
-        char * chat = malloc(sizeof(char) * 100); 
         char * info = malloc(sizeof(char) * 100); 
 
 		if (!(info = strtok_r(NULL, " ", &input_tokens))) {
@@ -660,13 +649,14 @@ char * process_flight_request(char * input, socket_info * soc_info) {
 		}
 
         if(string_equal(info, "CHAT")) {
-           chat = process_chat_request(soc_info);
-           return chat;
+
+            soc_info->chatmode = true;
+            return "****** Welcome to the chat *******";
 
         }
 
 
-        return chat;
+        return "Something went wrong";
 
 
     }
