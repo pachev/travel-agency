@@ -3,6 +3,7 @@
 #define _GNU_SOURCE
 
 #include <assert.h>
+#include <stdbool.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <stdio.h>
@@ -25,12 +26,21 @@ pthread_mutex_t flight_map_mutex;
 /// @brief contains socket information
 /// includes file descriptor port pair.
 typedef struct {
+    int loggedon;
+    char * username;
+    char * message;
+
+} ClientUser;
+
+typedef struct {
     int fd;
     int port;
     char * ip_address;
     int enabled;
     map_t * map;
+    ClientUser * c_u;
 } socket_info;
+
 
 /// @brief accepts socket connection handler
 /// handler is run on separate thread
@@ -70,7 +80,7 @@ void close_servers(socket_info * server, pthread_t * thread, int no_ports);
 
 /// @brief Processes command string from client and provides response
 /// @returns NULL if command is invalid, else string response
-char * process_flight_request(char * command, map_t flight_map);
+char * process_flight_request(char * command, socket_info * soc_info);
 
 /// @brief reads each line from @file_name expecting (flight, seats)
 /// pair. flight pairs are added to @p flight_map
@@ -94,6 +104,8 @@ void error(char * const message) {
     perror(message);
     pthread_exit(NULL);
 }
+
+ClientUser *ClientUser_new (); 
 
 
                           
@@ -413,14 +425,14 @@ void * server_handler(void * handler_args) {
         }
 
         // process commands
-        char * current_data = process_flight_request(input, inet_socket->map);
+        char * current_data = process_flight_request(input, inet_socket);
 
         // write to connection with reply
         if (write(clientfd, current_data, strlen(current_data) + 1) < 0) {
             error("error: writing to connection");
         }
 
-        printf("%d: sent message to client\n", inet_socket->port);
+        printf("%d: sent response to client\n", inet_socket->port);
 
         // close socket
         close(clientfd);
@@ -448,6 +460,10 @@ int init_inet_socket(socket_info * inet_socket, char * ip_address, int port) {
     // enable socket
     inet_socket->enabled = 1;
     inet_socket->port = port;
+    
+    //handle ClientUser
+    inet_socket->c_u = ClientUser_new();
+
 
     // copy ip_address to socket_info object
     inet_socket->ip_address = malloc(sizeof(char) * strlen(ip_address) + 1);
@@ -538,19 +554,44 @@ void print_avail_flight(char * flight, void * seats, void * args) {
         return;
 }
 
-char * process_flight_request(char * input, map_t flight_map) {
+char * process_flight_request(char * input, socket_info * soc_info) {
     // parse input for commands
     // for now we're just taking the direct command
     // split command string to get command and arguments
 
     char * input_tokens = NULL; // used to save tokens when splitting string  
     char * command = NULL; 
+    map_t flight_map = soc_info->map;
+    ClientUser * c_u = soc_info->c_u; 
 
     if (!(command= strtok_r(input, " ", &input_tokens))) {
 		return "error: cannot proccess server command"; 
     }
 
+    if (string_equal(command, "LOGON")) {
+        if(c_u->loggedon)
+            return "Already logged on";
+        else {
+
+        char * info = malloc(sizeof(char) * 100); 
+
+		if (!(c_u->username = strtok_r(NULL, " ", &input_tokens))) {
+			return "Please enter a username ";
+		}
+        c_u->loggedon = true;
+        sprintf(info, "Sucessfully logged on as %s", c_u->username);
+
+        return info;
+
+        }
+
+    }
+
     if (string_equal(command, "QUERY")) {
+
+        if(c_u->loggedon)
+            return "You need to be looged on to perform this action";
+
 		// get flight to query 
 		char * flight = NULL; 
 		if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
@@ -573,6 +614,10 @@ char * process_flight_request(char * input, map_t flight_map) {
     }	
 
     if (string_equal(command, "LIST")) {
+
+        if(!c_u->loggedon)
+            return "You need to be looged on to perform this action";
+
         printf("server: listing flights\n");
 
         char *info = NULL;
@@ -590,6 +635,10 @@ char * process_flight_request(char * input, map_t flight_map) {
     }
 
     if (string_equal(command, "LIST_AVAILABLE") || string_equal(command, "L_A")) {
+
+        if(!c_u->loggedon)
+            return "You need to be looged on to perform this action";
+
         printf("server: listing flights\n");
 
         char *info = NULL;
@@ -607,6 +656,11 @@ char * process_flight_request(char * input, map_t flight_map) {
     }
 
     if (string_equal(command, "RESERVE")) {
+
+        if(!c_u->loggedon)
+            return "You need to be looged on to perform this action";
+        
+        
         char * flight = NULL;
         char * seats = NULL;
         char * info = (char*)malloc(sizeof(char) * 256); //holder for message
@@ -644,6 +698,10 @@ char * process_flight_request(char * input, map_t flight_map) {
     }
 
     if (string_equal(command, "RETURN")) {
+
+        if(!c_u->loggedon)
+            return "You need to be looged on to perform this action";
+
       char * flight = NULL;
       char * seats = NULL;
       char * info = malloc(sizeof(char) * 256);
@@ -680,3 +738,17 @@ char * process_flight_request(char * input, map_t flight_map) {
 
     return "error: cannot recognize command"; 
 } // process_flight_request
+
+ClientUser* ClientUser_new() {
+    ClientUser *c = (ClientUser *) malloc(sizeof(ClientUser));
+    if(!c)
+        return NULL;
+
+    c->message = (char*) malloc(sizeof(char) * 256);
+    c->loggedon = false;
+    c->username = (char*) malloc(sizeof(char) * 100);
+
+
+    return c;
+
+}
