@@ -4,8 +4,9 @@ Travel Agency client/server applications
 Forked from https://gitlab.com/openhid/travel-agency 
 
 ## Build
-```
+```shell
 git clone https://github.com/pachev/travel-agency.git
+git submodule update --init --recursive
 
 make clean && make
 ```
@@ -13,7 +14,12 @@ make clean && make
 ## travel_server
  usage: `travel_server ip_address start_port no_ports data_file output_file`
 
- `$ travel_server 127.0.0.1 9000 5 in.txt out.txt`
+ `travel_server localhost 9000 5 in.txt out.txt`
+
+## travel_client
+ usage: `travel_server ip_address start_port no_ports data_file output_file`
+
+ `travel_server localhost 9000`
 
 ### Commands
 #### EXIT 
@@ -30,17 +36,14 @@ Write filename with current data.
 
 
 
-## travel_client
-usage: `travel_client ip_address port`
-
-`$ travel_client 127.0.0.1 9000`
 
 ### Commands
+
 #### LOGON `username`
 
 #### QUERY `flight`
 Returns number of seats available on flight.
-usage: `QUERY MIAMI-ORL`
+usage: `QUERY MIA-ORL`
 
 #### RESERVE `flight` `seats`
 Reserves number of seats on flight.
@@ -49,6 +52,9 @@ Reserves number of seats on flight.
 
 #### LIST 
 Lists all flights and their available seats.
+
+#### LIST `N`
+Lists `N` flights and their available seats.
 
 #### LIST_AVAILABLE
 Lists only flights with available seats.
@@ -60,5 +66,9 @@ List the first N flights with available seats.
 
 #### ENTER_CHAT `nickname`
 Opens chat with nickname.
+
+### Chat commands
+
+#### TEXT `Message to be sent`
 
 #### LOGOFF
