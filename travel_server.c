@@ -19,6 +19,7 @@
 #include "c_hashmap/hashmap.h"
 
 #define MAX_SEATS 40
+#define MAX_CLIENTS 10
 
 
 // Synchronizes access to flight_map
@@ -386,9 +387,6 @@ void * server_handler(void * handler_args) {
     // retrieve socket_info from args
     socket_info * inet_socket = (socket_info *) handler_args;
     
-    // maximum number of input connections queued at a time
-    int const MAX_CLIENTS = 10;
-
     // listen for connections on sockets 
     if (listen(inet_socket->fd, MAX_CLIENTS) < 0) {
         error("error: listening to connections");
@@ -435,7 +433,7 @@ void * server_handler(void * handler_args) {
         
         
         // exit command breaks loop
-        if (string_equal(input, "EXIT")) {
+        if (string_equal(current_data, "EXIT")) {
             break;
         }
 
@@ -452,6 +450,8 @@ void * server_handler(void * handler_args) {
     
     // close server socket
     close(inet_socket->fd);
+    inet_socket->c_u->loggedon = false;
+    inet_socket->chatmode= false;
     printf("%d: exiting\n", inet_socket->port);
     
     pthread_exit(handler_args);
@@ -594,6 +594,24 @@ char * process_chat_request(char * input, socket_info * soc_info) {
 
         return info;
 
+    }
+
+    if (string_equal(command, "EXIT")) {
+
+
+		if (!(message= strtok_r(NULL, " ", &input_tokens))) {
+
+			return "Please enter a valid command";
+		}
+
+        if(string_equal(message, "CHAT")) {
+
+            soc_info->chatmode = false;
+            return "Thanks for chatting";
+
+        }
+
+        return "Something went wrong";
 
     }
 
@@ -808,6 +826,10 @@ char * process_flight_request(char * input, socket_info * soc_info) {
     return info;
 
     }
+
+    if (string_equal(command, "EXIT"))
+        return "EXIT";
+
 
 
     return "error: cannot recognize command"; 

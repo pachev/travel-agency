@@ -69,15 +69,15 @@ int main(int argc, char * argv[]) {
         
         // read input from terminal to be sent
         // prompt user
-        printf("\nclient: enter message to be sent: ");
+        printf("\n>>> ");
         fgets(buffer, sizeof(buffer), stdin);
 
         char * command_token = NULL;
         char * command = strtok_r(buffer, "\n", &command_token); // remove \n newline from buffer
 
         // if log off in command
-        if (strstr(command, "LOG_OFF")) {
-            printf("\nclient: closing client\n");
+        if (strstr(command, "LOGOFF")) {
+            printf("\nclosing client\n");
             close(client_fd);
             break;
         }
@@ -86,13 +86,12 @@ int main(int argc, char * argv[]) {
         if (write(client_fd, command, strlen(command) + 1) < 0)
             error("error: writing to socket");
         
-        printf("client: sending %s to server\n", command);
 
         // recieve response from server
         if (read(client_fd, buffer, sizeof(buffer)) < 0)
             error("error: reading from socket");
 
-        printf("client:  %s", buffer);
+        printf("%s", buffer);
 
         close(client_fd);
     }
