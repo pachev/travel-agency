@@ -20,7 +20,7 @@
 #include "travel_server.h"
 
 #define MAX_SEATS 40
-#define MAX_CLIENTS 10
+#define MAX_CLIENTS 8
 
 
 
@@ -34,15 +34,22 @@ int main (int argc, char * argv[]) {
     //
     /// initialize multithreading objects
     pthread_mutex_init(&flight_map_mutex, NULL);
+    no_ports = atoi(argv[3]);
     // if not enough arguments
-    if (argc < 6) {
+    if (argc < 6 ) {
         error("usage: talent_server ip_address start_port no_ports in_file out_file\n");
     }
+
+    if(no_ports > MAX_CLIENTS) {
+        printf("Trying to open too many ports\n");
+        exit(1);
+    }
+
+    printf("no_ports: %d",atoi(argv[3]));
 
     // read command arguments
     char * ip_address = argv[1];
     int start_port = atoi(argv[2]);
-    no_ports = atoi(argv[3]);
     char * in_filename = argv[4];
     char * out_filename = argv[5]; 
 

@@ -1,7 +1,11 @@
 # Travel Agency
 
-Travel Agency client/server applications
+Travel Agency client/server application
 Forked from https://gitlab.com/openhid/travel-agency 
+
+## Description
+This is a travel agency. The agency can  serve up to 10000 flights, all are round trip with different 
+amount of seats. The agency also provide a chat room for customers.
 
 ## Build
 ```shell
@@ -12,16 +16,16 @@ make clean && make
 ```
 
 ## travel_server
- usage: `travel_server ip_address start_port no_ports data_file output_file`
+Usage: `travel_server ip_address start_port no_ports data_file output_file`
 
- `travel_server localhost 9000 5 in.txt out.txt`
+Example:  `travel_server localhost 9000 5 in.txt out.txt`
 
 ## travel_client
- usage: `travel_server ip_address start_port no_ports data_file output_file`
+Usage: `travel_server ip_address start_port no_ports data_file output_file`
 
- `travel_server localhost 9000`
+Example `travel_client localhost 9000`
 
-### Commands
+### Commands for SERVER
 #### EXIT 
 Exits the server.
 
@@ -31,13 +35,11 @@ List all users connected.
 #### LIST_CHAT 
 List all users in chat.
 
-#### WRITE `filename`
-Write filename with current data.
+#### WRITE 
+Write output file with current data.
 
 
-
-
-### Commands
+### Commands for CLIENT
 
 #### LOGON `username`
 
@@ -48,7 +50,12 @@ usage: `QUERY MIA-ORL`
 #### RESERVE `flight` `seats`
 Reserves number of seats on flight.
 
-`$ RESERVE MIAMI-ORL 4`
+`>>> RESERVE MIAMI-ORL 4`
+
+#### RETURN `flight` `seats`
+Returns a number of seats on a flight (don't cheat the system, it knows).
+
+`>>> RETURN MIAMI-ORL 4`
 
 #### LIST 
 Lists all flights and their available seats.
@@ -62,13 +69,25 @@ Lists only flights with available seats.
 #### LIST_AVAILABLE `N`
 List the first N flights with available seats.
 
-`$ LIST_AVAILABLE 4`
+`>>> LIST_AVAILABLE 4`
+
+### LOGOFF
+Logs users off from client and disconnects from server. 
 
 #### ENTER_CHAT `nickname`
 Opens chat with nickname.
 
-### Chat commands
+
+### Chat Commands
 
 #### TEXT `Message to be sent`
+Sends a text message that will be seen by all users in the chat.
 
-#### LOGOFF
+#### LIST 
+List all users connected that are online in the chat. Also returns a count. 
+
+#### LIST_ALL 
+List all users, including those offline.  Also returns a count.
+
+#### LIST_OFFLINE 
+List all the users that are offline.  Also returns a count.
