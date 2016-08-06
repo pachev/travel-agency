@@ -15,6 +15,9 @@
 
 /// prints error buffer and exits
 /// with error status
+
+int string_equal(char const * string, char const * other_string);
+
 void error(char const * buffer) {
     perror(buffer);
     exit(0);
@@ -24,11 +27,11 @@ int main(int argc, char * argv[]) {
     // check number of arguments
     if (argc < 3)
         error("usage: travel_client ip_address\n");
-     
+
     // assign command line arguments
     char * ip_address = argv[1];
     int port = atoi(argv[2]);
-    
+
     // socket handler
     int client_fd;
 
@@ -66,35 +69,54 @@ int main(int argc, char * argv[]) {
 
         // initialize buffer for input
         memset(&buffer, 0, sizeof(buffer));
-        
+
         // read input from terminal to be sent
         // prompt user
         printf("\n>>> ");
         fgets(buffer, sizeof(buffer), stdin);
 
-        char * command_token = NULL;
-        char * command = strtok_r(buffer, "\n", &command_token); // remove \n newline from buffer
+        if(string_equal(buffer, "\n")) {
 
-        // if log off in command
-        if (strstr(command, "LOGOFF")) {
-            printf("\nclosing client\n");
+            write(client_fd, " ", 2);
+            read(client_fd, buffer, sizeof(buffer)); 
             close(client_fd);
-            break;
+            printf("%s", buffer);
+
+        }
+        else {
+
+            char * command_token = NULL;
+            char * command = strtok_r(buffer, "\n", &command_token); // remove \n newline from buffer
+
+            // if log off in command
+            if (strstr(command, "LOGOFF")) {
+                printf("\nclosing client\n");
+                close(client_fd);
+                break;
+            }
+
+            // send input to server
+            if (write(client_fd, command, strlen(command) + 1) < 0)
+                error("error: writing to socket");
+
+
+            // recieve response from server
+            if (read(client_fd, buffer, sizeof(buffer)) < 0)
+                error("error: reading from socket");
+
+            printf("%s", buffer);
+
+            close(client_fd);
+
         }
 
-        // send input to server
-        if (write(client_fd, command, strlen(command) + 1) < 0)
-            error("error: writing to socket");
-        
-
-        // recieve response from server
-        if (read(client_fd, buffer, sizeof(buffer)) < 0)
-            error("error: reading from socket");
-
-        printf("%s", buffer);
-
-        close(client_fd);
     }
 
     return 0;
 } 
+
+
+int string_equal(char const * string, char const * other_string) {
+    return strcmp(string, other_string) == 0; 
+} // string_equal
+

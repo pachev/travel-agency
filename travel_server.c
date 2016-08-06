@@ -37,6 +37,7 @@ typedef struct {
 
 typedef struct {
     int fd;
+    bool broadcasting;
     int port;
     char * ip_address;
     bool chatmode;
@@ -115,9 +116,16 @@ void error(char * const message) {
 
 ClientUser *ClientUser_new (); 
 
+    /// @brief socket server handlers 
+    /// used as thread args
+    socket_info * servers;
+    int no_ports = 0;
 
                           
 int main (int argc, char * argv[]) {
+    //
+    /// initialize multithreading objects
+    pthread_mutex_init(&flight_map_mutex, NULL);
     // if not enough arguments
     if (argc < 6) {
         error("usage: talent_server ip_address start_port no_ports in_file out_file\n");
@@ -126,9 +134,11 @@ int main (int argc, char * argv[]) {
     // read command arguments
     char * ip_address = argv[1];
     int start_port = atoi(argv[2]);
-    int no_ports = atoi(argv[3]);
+    no_ports = atoi(argv[3]);
     char * in_filename = argv[4];
     char * out_filename = argv[5]; 
+
+    servers = (socket_info *) malloc(sizeof(socket_info) * no_ports);
 
     // initialize flight map
     // Holds flight/seat pairs of clients
@@ -137,9 +147,6 @@ int main (int argc, char * argv[]) {
 
     read_flight_map_file(in_filename, flight_map);
 
-    /// @brief socket server handlers 
-    /// used as thread args
-    socket_info servers[no_ports];
 
     // initialize connection threads
     pthread_t * connection_threads = calloc(no_ports, sizeof(pthread_t));
@@ -193,6 +200,7 @@ int main (int argc, char * argv[]) {
     // free hashmap handle
     hashmap_free(flight_map);
     hashmap_free(user_map);
+    free(servers);
 
     return 0; 
 } // main
@@ -383,6 +391,20 @@ void  free_flight_map_data(map_t flight_map) {
     hashmap_foreach(flight_map, &free_flight);
 } // free_flight_map_data
 
+void broadcast_message (char * arg) {
+    
+    printf("Broadcasting Message\n");
+
+    for (int i = 0; i < no_ports; i++) {
+
+        pthread_mutex_lock(&flight_map_mutex);
+        if(servers[i].chatmode) 
+            write(servers[i].clientfd, arg, strlen(arg) + 1);
+        pthread_mutex_unlock(&flight_map_mutex);
+    }
+
+}
+
 void * server_handler(void * handler_args) {
     // retrieve socket_info from args
     socket_info * inet_socket = (socket_info *) handler_args;
@@ -398,6 +420,9 @@ void * server_handler(void * handler_args) {
         // socket address information
         struct sockaddr_in client_address;
         char * current_data = (char*) malloc(sizeof(char) * 256);
+        char * input_tokens = NULL;
+        char * message = NULL;
+        char * chat_response = NULL;
         
         // accept incoming connection from client
         socklen_t client_length = sizeof(client_address);
@@ -436,16 +461,42 @@ void * server_handler(void * handler_args) {
         if (string_equal(current_data, "EXIT")) {
             break;
         }
+        //
+        //TODO: Figure how to extract broadcasting from string
+        //
+        
+        if(inet_socket->broadcasting) {
 
-        // write to connection with reply
-        if (write(inet_socket->clientfd, current_data, strlen(current_data) + 1) < 0) {
-            error("error: writing to connection");
+            chat_response = strtok_r(current_data, "~", &input_tokens);
+            message = strtok_r(NULL, "\0", &input_tokens);
+
+            if (string_equal(chat_response, "Broadcast")) {
+                broadcast_message(message);
+
+            }
+            // Echoing back
+            if (write(inet_socket->clientfd, message, strlen(message) + 1) < 0) {
+                error("error: writing to connection");
+            }
+
+            close(inet_socket->clientfd);
+
+            inet_socket->broadcasting = false;
+
         }
+        else {
 
-        printf("%d: sent response to client\n", inet_socket->port);
+            // write to connection with reply
+            if (write(inet_socket->clientfd, current_data, strlen(current_data) + 1) < 0) {
+                error("error: writing to connection");
+            }
 
-        // close socket
-        close(inet_socket->clientfd);
+            printf("%d: sent response to client\n", inet_socket->port);
+
+            // close socket
+            close(inet_socket->clientfd);
+
+        }
     }
     
     // close server socket
@@ -476,6 +527,7 @@ int init_inet_socket(socket_info * inet_socket, char * ip_address, int port) {
     //handle ClientUser
     inet_socket->c_u = ClientUser_new();
     inet_socket->chatmode = false;
+    inet_socket->broadcasting = false;
 
 
     // copy ip_address to socket_info object
@@ -516,8 +568,6 @@ int init_inet_socket(socket_info * inet_socket, char * ip_address, int port) {
 } // init_inet_socket
 
 int launch_server(socket_info * server, pthread_t * thread) {
-    /// initialize multithreading objects
-    pthread_mutex_init(&flight_map_mutex, NULL);
 
     if (pthread_create(thread, NULL, server_handler, server) == 0) {
         printf("server: started server on port %d\n", server->port);
@@ -580,19 +630,37 @@ char * process_chat_request(char * input, socket_info * soc_info) {
     }
 
     if (string_equal(command, "TEXT")) {
+        soc_info->broadcasting = true;
 
-        char * info = malloc(sizeof(char) * 100 + 1); 
+        char * info = malloc(sizeof(char) * 256); 
 
 		if (!(message= strtok_r(NULL, "\0", &input_tokens))) {
 
 			return "Please enter a message";
 		}
 
-        strcpy(c_u->message, message);
-
-        sprintf(info, "%s: %s", c_u->username, c_u->message);
+        sprintf(info, "Broadcast~ %s: %s", c_u->username, message);
 
         return info;
+
+    }
+
+    if (string_equal(command, "EXIT")) {
+
+
+		if (!(message= strtok_r(NULL, " ", &input_tokens))) {
+
+			return "Please enter a valid command";
+		}
+
+        if(string_equal(message, "CHAT")) {
+
+            soc_info->chatmode = false;
+            return "Thanks for chatting";
+
+        }
+
+        return "Something went wrong";
 
     }
 
