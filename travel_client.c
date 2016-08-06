@@ -91,6 +91,10 @@ int main(int argc, char * argv[]) {
             // if log off in command
             if (strstr(command, "LOGOFF")) {
                 printf("\nclosing client\n");
+                // send input to server
+                if (write(client_fd, command, strlen(command) + 1) < 0)
+
+                error("error: writing to socket");
                 close(client_fd);
                 break;
             }

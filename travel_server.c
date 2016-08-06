@@ -86,7 +86,7 @@ int main (int argc, char * argv[]) {
         char input[BUFFER_SIZE];
         memset(&input, 0, sizeof(input));
 
-        printf("\nserver: enter command \n");
+        printf("\nenter command");
         fgets(input, sizeof(input), stdin);
 
         if (strstr(input, "LIST")) {
@@ -95,6 +95,8 @@ int main (int argc, char * argv[]) {
         if (strstr(input, "LIST_CHAT")){
                 printf("%s\n", list_chat_users());
         } 
+        if(strstr(input, "WRITE"))
+            write_flight_map_file(out_filename, flight_map);
 
         // if exit in command
         if (strstr(input, "EXIT")) {
@@ -511,6 +513,26 @@ void read_flight_map_file(char * file_name, map_t flight_map) {
     }
 } // read_flight_map_file
 
+void write_flight_map_file(char * file_name, map_t flight_map) {
+    // read input data
+    FILE * file;
+    char * formatted = (char*)malloc(sizeof(char) * 4096);
+    if (!(file = fopen(file_name, "w"))) {
+        perror("error: cannot open outpute file"); 
+    }
+
+    formatted = (char*) hashmap_foreach(flight_map, &print_flight);
+
+    fprintf(file, "%s\n", formatted);
+
+    printf("Saving to file %s\n",file_name);
+
+    fclose(file);
+
+    free(formatted);
+
+} // write_flight_map_file
+
 int string_equal(char const * string, char const * other_string) {
     return strcmp(string, other_string) == 0; 
 } // string_equal
@@ -856,6 +878,15 @@ char * process_flight_request(char * input, socket_info * soc_info) {
     }
 
     return info;
+
+    }
+
+    if (string_equal(command, "LOGOFF")) {
+
+        soc_info->c_u->loggedon = false;
+        soc_info->chatmode= false;
+
+        return "EXIT";
 
     }
 

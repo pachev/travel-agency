@@ -114,7 +114,14 @@ void error(char * const message) {
 ClientUser *ClientUser_new (); 
 
 char * list_all_users ();
+
 char * list_chat_users ();
+
+void write_flight_map_file(char * file_name, map_t flight_map);
+
+void print_flight(char * flight, void * seats, void * args);
+
+void print_avail_flight(char * flight, void * seats, void * args);
 
 
 

@@ -1,0 +1,12 @@
+
+test 10
+empty 0
+BOG-MIA 38 
+empty2 0
+ATL-MIA 20 
+JFK-MIA 20 
+empty3 0
+NUE-FLA 15 
+PAP-MIA 15 
+MIA-ORL 10
+
