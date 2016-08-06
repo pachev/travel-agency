@@ -15,6 +15,7 @@ bin/*
 .Trashes
 ehthumbs.db
 Thumbs.db
+.vscode/
 
 ./bin/traverl_server
 ./bin/traverl_client
