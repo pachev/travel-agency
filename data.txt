@@ -1,7 +1,10 @@
 MIA-ORL 10
-BOG-MIA 15 
+BOG-MIA 38 
 PAP-MIA 15 
+JFK-MIA 20 
 test 10
 empty 0
 empty2 0
 empty3 0
+NUE-FLA 15 
+ATL-MIA 20 

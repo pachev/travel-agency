@@ -17,111 +17,19 @@
 #include <sys/socket.h>
 
 #include "c_hashmap/hashmap.h"
+#include "travel_server.h"
 
 #define MAX_SEATS 40
 #define MAX_CLIENTS 10
 
 
-// Synchronizes access to flight_map
-pthread_mutex_t flight_map_mutex;
-/// @brief contains socket information
-/// includes file descriptor port pair.
-typedef struct {
-    bool loggedon;
-    char * username;
-    char * message;
-    bool in_chat;
-    
 
-} ClientUser;
-
-typedef struct {
-    int fd;
-    bool broadcasting;
-    int port;
-    char * ip_address;
-    bool chatmode;
-    int enabled;
-    map_t * map;
-    int clientfd;
-    ClientUser * c_u;
-} socket_info;
+/// @brief socket server handlers 
+/// used as thread args
+socket_info * servers;
+int no_ports = 0;
 
 
-char * process_chat_request(char * input, socket_info * soc_info);
-
-
-/// @brief accepts socket connection handler
-/// handler is run on separate thread
-/// @param [in] socket_info  contains socket info
-/// of type socket_info
-void * server_handler(void * socket_info);
-
-/// @brief Add flight to flight map
-/// @param [in] flight_map hash map appended 
-/// @param [in] flight flight string used as index
-/// @param [in] seats on flight
-void add_flight(map_t flight_map, char * flight, char * seats);
-
-/// @brief frees memory associated with map items 
-void free_flight_map_data(map_t flight_map);
-
-/// @brief initializes inet socket with given address information
-/// @param sockfd socket_info object to tbe initialized
-/// @param ip_address ipv4 addresss
-/// @param port adderess port
-/// @returns 1 if error, 0 otherwise
-int init_inet_socket(socket_info * sockfd, char * ip_address, int port); 
-
-/// @brief binds socket info to sockddr object
-/// @param socketinfo socket info source
-/// @param sockaddr inet socket address 
-void bind_inet_socket(socket_info * sockfd, struct sockaddr_in * socket_address);
-
-/// @brief launches server on @p ports on a thread,
-/// listens on ports [start_port, start_port + no_ports].
-/// @returns 1 if error, 0 otherwise
-int launch_server(socket_info * server, pthread_t * thread);
-
-/// @brief joins server threads, and destroys 
-/// related synchronization objects.
-void close_servers(socket_info * server, pthread_t * thread, int no_ports);
-
-/// @brief Processes command string from client and provides response
-/// @returns NULL if command is invalid, else string response
-char * process_flight_request(char * command, socket_info * soc_info);
-
-/// @brief reads each line from @file_name expecting (flight, seats)
-/// pair. flight pairs are added to @p flight_map
-void read_flight_map_file(char * file_name, map_t flight_map);
-
-/// @brief Wraps strcmp to compare in @p string & @p other_string equality
-/// @returns 1 if true, false otherwise.
-int string_equal(char const * string, char const * other_string);
-
-/// @brief iterates @p map and invokes @p callback with key/value
-/// pair of each map item
-/// @param map hashmap iterated
-/// @param callback function pointer taking as arguments
-void * hashmap_foreach(map_t map, void(* callback)(char * key, void * data, void * args));
-
-void * hashmap_foreach_n(map_t map, int n,  void(* callback)(char * key, void * data, void * args));
-
-/// @brief error handler
-/// prints error and exits with error status
-void error(char * const message) {
-    perror(message);
-    pthread_exit(NULL);
-}
-
-ClientUser *ClientUser_new (); 
-
-    /// @brief socket server handlers 
-    /// used as thread args
-    socket_info * servers;
-    int no_ports = 0;
-
-                          
 int main (int argc, char * argv[]) {
     //
     /// initialize multithreading objects
@@ -180,6 +88,13 @@ int main (int argc, char * argv[]) {
 
         printf("\nserver: enter command \n");
         fgets(input, sizeof(input), stdin);
+
+        if (strstr(input, "LIST")) {
+            printf("%s\n", list_all_users());
+        }
+        if (strstr(input, "LIST_CHAT")){
+                printf("%s\n", list_chat_users());
+        } 
 
         // if exit in command
         if (strstr(input, "EXIT")) {
@@ -432,13 +347,10 @@ void * server_handler(void * handler_args) {
 
         // get incoming connection information
         struct sockaddr_in * incoming_address = (struct sockaddr_in *) &client_address;
-        int incoming_port = ntohs(incoming_address->sin_port); // get port
         char incoming_ip_address[INET_ADDRSTRLEN]; // holds ip address string
         // get ip address string from address object
         inet_ntop(AF_INET, &incoming_address->sin_addr, incoming_ip_address, sizeof(incoming_ip_address));
 
-        printf("%d: incoming connection from %s:%d\n", inet_socket->port, incoming_ip_address, incoming_port);
-        
         // holds incoming data from socket
         int const BUFFER_SIZE = 256;
         char input[BUFFER_SIZE];
@@ -647,26 +559,7 @@ char * process_chat_request(char * input, socket_info * soc_info) {
 
     if (string_equal(command, "LIST_ALL")) {
 
-        char * info = malloc(sizeof(char) * 256); 
-        int count = 0;
-
-        printf("*** ALL USERS ***\n");
-        sprintf(info, "*** ALL USERS ***\n");
-        //
-        //TODO: move this to its own function
-        //
-        for (int i = 0; i < no_ports; i++) {
-
-            pthread_mutex_lock(&flight_map_mutex);
-            if(servers[i].c_u->loggedon){
-                sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
-                count++;
-            }
-            pthread_mutex_unlock(&flight_map_mutex);
-        }
-
-        sprintf(info + strlen(info), "Total Users: %d\n", count);
-
+        char * info = list_all_users();
         return info;
     }
 
@@ -698,26 +591,7 @@ char * process_chat_request(char * input, socket_info * soc_info) {
 
     if (string_equal(command, "LIST")) {
 
-        char * info = malloc(sizeof(char) * 256); 
-        int count = 0;
-
-        printf("*** Users Online ***\n");
-        sprintf(info, "*** Users Online ***\n");
-        //
-        //TODO: move this to its own function
-        //
-        for (int i = 0; i < no_ports; i++) {
-
-            pthread_mutex_lock(&flight_map_mutex);
-            if(servers[i].chatmode){
-                sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
-                count++;
-            }
-            pthread_mutex_unlock(&flight_map_mutex);
-        }
-
-        sprintf(info + strlen(info), "Total online: %d\n", count);
-
+        char * info = list_chat_users();
         return info;
     }
 
@@ -786,10 +660,23 @@ char * process_flight_request(char * input, socket_info * soc_info) {
         else {
 
         char * info = malloc(sizeof(char) * 100); 
+        
 
 		if (!(username = strtok_r(NULL, " ", &input_tokens))) {
 			return "Please enter a username ";
 		}
+
+        for (int i = 0; i < no_ports; i++) {
+
+            pthread_mutex_lock(&flight_map_mutex);
+            if(strstr(servers[i].c_u->username, username)){
+                c_u->unique_num ++;
+            }
+            pthread_mutex_unlock(&flight_map_mutex);
+            
+        }
+        if(c_u->unique_num > 0)
+            sprintf(username, "%s%d",username, c_u->unique_num);
 
         strcpy(c_u->username, username);
         c_u->loggedon = true;
@@ -985,7 +872,7 @@ ClientUser* ClientUser_new() {
     if(!c)
         return NULL;
 
-    c->message = (char*) malloc(sizeof(char) * 256);
+    c->unique_num = 0;
     c->loggedon = false;
     c->in_chat = false;
     c->username = (char*) malloc(sizeof(char) * 100);
@@ -993,4 +880,51 @@ ClientUser* ClientUser_new() {
 
     return c;
 
+}
+
+char * list_all_users () {
+    char * info = malloc(sizeof(char) * 256); 
+    int count = 0;
+
+    printf("*** ALL USERS ***\n");
+    sprintf(info, "*** ALL USERS ***\n");
+
+    for (int i = 0; i < no_ports; i++) {
+
+        pthread_mutex_lock(&flight_map_mutex);
+        if(servers[i].c_u->loggedon){
+            sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
+            count++;
+        }
+        pthread_mutex_unlock(&flight_map_mutex);
+    }
+
+    sprintf(info + strlen(info), "Total Users: %d\n", count);
+
+    return info;
+
+}
+
+
+char * list_chat_users() {
+
+        char * info = malloc(sizeof(char) * 256); 
+        int count = 0;
+
+        printf("Listing Users in Chat \n");
+        sprintf(info, "*** Users in Chat ***\n");
+
+        for (int i = 0; i < no_ports; i++) {
+
+            pthread_mutex_lock(&flight_map_mutex);
+            if(servers[i].chatmode){
+                sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
+                count++;
+            }
+            pthread_mutex_unlock(&flight_map_mutex);
+        }
+
+        sprintf(info + strlen(info), "Total online: %d\n", count);
+
+        return info;
 }
