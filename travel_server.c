@@ -645,6 +645,83 @@ char * process_chat_request(char * input, socket_info * soc_info) {
 
     }
 
+    if (string_equal(command, "LIST_ALL")) {
+
+        char * info = malloc(sizeof(char) * 256); 
+        int count = 0;
+
+        printf("*** ALL USERS ***\n");
+        sprintf(info, "*** ALL USERS ***\n");
+        //
+        //TODO: move this to its own function
+        //
+        for (int i = 0; i < no_ports; i++) {
+
+            pthread_mutex_lock(&flight_map_mutex);
+            if(servers[i].c_u->loggedon){
+                sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
+                count++;
+            }
+            pthread_mutex_unlock(&flight_map_mutex);
+        }
+
+        sprintf(info + strlen(info), "Total Users: %d\n", count);
+
+        return info;
+    }
+
+    if (string_equal(command, "LIST_OFFLINE")) {
+
+        char * info = malloc(sizeof(char) * 256); 
+        int count = 0;
+
+        printf("*** Offline Users ***\n");
+        sprintf(info, "*** Offline Users ***\n");
+        //
+        //TODO: move this to its own function
+        //
+        for (int i = 0; i < no_ports; i++) {
+
+            pthread_mutex_lock(&flight_map_mutex);
+            if(!servers[i].chatmode && servers[i].c_u->loggedon){
+                sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
+                count++;
+            }
+            pthread_mutex_unlock(&flight_map_mutex);
+        }
+
+        sprintf(info + strlen(info), "Total Users: %d\n", count);
+
+        return info;
+    }
+
+
+    if (string_equal(command, "LIST")) {
+
+        char * info = malloc(sizeof(char) * 256); 
+        int count = 0;
+
+        printf("*** Users Online ***\n");
+        sprintf(info, "*** Users Online ***\n");
+        //
+        //TODO: move this to its own function
+        //
+        for (int i = 0; i < no_ports; i++) {
+
+            pthread_mutex_lock(&flight_map_mutex);
+            if(servers[i].chatmode){
+                sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
+                count++;
+            }
+            pthread_mutex_unlock(&flight_map_mutex);
+        }
+
+        sprintf(info + strlen(info), "Total online: %d\n", count);
+
+        return info;
+    }
+
+
     if (string_equal(command, "EXIT")) {
 
 
