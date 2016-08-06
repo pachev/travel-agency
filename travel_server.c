@@ -93,14 +93,14 @@ int main (int argc, char * argv[]) {
         char input[BUFFER_SIZE];
         memset(&input, 0, sizeof(input));
 
-        printf("\nenter command");
+        printf("\nenter command: ");
         fgets(input, sizeof(input), stdin);
 
         if (strstr(input, "LIST")) {
             printf("%s\n", list_all_users());
         }
         if (strstr(input, "LIST_CHAT")){
-                printf("%s\n", list_chat_users());
+            printf("%s\n", list_chat_users());
         } 
         if(strstr(input, "WRITE"))
             write_flight_map_file(out_filename, flight_map);
@@ -115,7 +115,7 @@ int main (int argc, char * argv[]) {
 
     // join server threads
     close_servers(servers, connection_threads, no_ports);
-    
+
     free(connection_threads);
 
     // free memory of items in hashmap
@@ -135,7 +135,7 @@ void add_flight(map_t flight_map, char * flight_token, char * seats_token) {
     char * seats = malloc(sizeof(char) * strlen(seats_token) + 1);
 
     // TODO: free memory in request on server thread
-    
+
     // copy temp strings into memory
     strcpy(flight, flight_token);
     strcpy(seats, seats_token);
@@ -149,15 +149,15 @@ void add_flight(map_t flight_map, char * flight_token, char * seats_token) {
 } // add_flight
 
 int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
-     //0 is not found, 1 is ok , 2 is full 
+    //0 is not found, 1 is ok , 2 is full 
 
     int curr_seat_value = 0;
     char *checking;
     char * flight = malloc(sizeof(char) * strlen(flight_token) + 1);
     char * seats = malloc(sizeof(char) * strlen(seats_token) + 1);
     char * new_seats = malloc(sizeof(char) * strlen(seats_token) + 1);
-    
-   
+
+
     int map_find_result = 0; 
     //
     // copy temp strings into memory
@@ -184,9 +184,9 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
         pthread_mutex_unlock(&flight_map_mutex);
 
 
-        printf("server: Reserved %s on flight %s. Updated Seats: %d   Retrieved: %d\n", seats, flight, curr_seat_value, atoi(checking));
+        printf("Reserved %s seats  on flight %s. Updated Seats: %d   Retrieved: %d\n", seats, flight, curr_seat_value, atoi(checking));
         return 1;
-        
+
     }
     else 
         return 0;
@@ -194,15 +194,15 @@ int reserve_flight(map_t flight_map, char * flight_token, char * seats_token) {
 
 
 int return_flight(map_t flight_map, char * flight_token, char * seats_token) {
-     //0 is not found, 1 is ok , 2 is full 
+    //0 is not found, 1 is ok , 2 is full 
 
     int curr_seat_value = 0;
     char *checking;
     char * flight = malloc(sizeof(char) * strlen(flight_token) + 1);
     char * seats = malloc(sizeof(char) * strlen(seats_token) + 1);
     char * new_seats = malloc(sizeof(char) * strlen(seats_token) + 1);
-    
-   
+
+
     int map_find_result = 0; 
     //
     // copy temp strings into memory
@@ -231,7 +231,7 @@ int return_flight(map_t flight_map, char * flight_token, char * seats_token) {
 
         printf("server: Reserved %s on flight %s. Updated Seats: %d   Retrieved: %d\n", seats, flight, curr_seat_value, atoi(checking));
         return 1;
-        
+
     }
     else 
         return 0;
@@ -285,7 +285,7 @@ void * hashmap_foreach_n(map_t flight_map, int n, void(* callback)(char *, void 
 
     char *info = malloc(sizeof(char) * 256);//TODO fix possible memory issues
     info[0] = '\n';
-    
+
     int count = 0;
 
     struct hashmap_map * map = (struct hashmap_map *) flight_map;
@@ -316,7 +316,7 @@ void  free_flight_map_data(map_t flight_map) {
 } // free_flight_map_data
 
 void broadcast_message (char * arg) {
-    
+
     printf("Broadcasting Message\n");
 
     for (int i = 0; i < no_ports; i++) {
@@ -332,7 +332,7 @@ void broadcast_message (char * arg) {
 void * server_handler(void * handler_args) {
     // retrieve socket_info from args
     socket_info * inet_socket = (socket_info *) handler_args;
-    
+
     // listen for connections on sockets 
     if (listen(inet_socket->fd, MAX_CLIENTS) < 0) {
         error("error: listening to connections");
@@ -347,7 +347,7 @@ void * server_handler(void * handler_args) {
         char * input_tokens = NULL;
         char * message = NULL;
         char * chat_response = NULL;
-        
+
         // accept incoming connection from client
         socklen_t client_length = sizeof(client_address);
         if ((inet_socket->clientfd = accept(inet_socket->fd, (struct sockaddr *) &client_address, &client_length)) < 0) {
@@ -376,8 +376,8 @@ void * server_handler(void * handler_args) {
         else
             current_data = process_flight_request(input, inet_socket); //process commands
 
-        
-        
+
+
         // exit command breaks loop
         if (string_equal(current_data, "EXIT")) {
             break;
@@ -385,7 +385,7 @@ void * server_handler(void * handler_args) {
         //
         //TODO: Figure how to extract broadcasting from string
         //
-        
+
         if(inet_socket->broadcasting) {
 
             chat_response = strtok_r(current_data, "~", &input_tokens);
@@ -419,13 +419,13 @@ void * server_handler(void * handler_args) {
 
         }
     }
-    
+
     // close server socket
     close(inet_socket->fd);
     inet_socket->c_u->loggedon = false;
     inet_socket->chatmode= false;
     printf("%d: exiting\n", inet_socket->port);
-    
+
     pthread_exit(handler_args);
 } // server_handler
 
@@ -444,7 +444,7 @@ int init_inet_socket(socket_info * inet_socket, char * ip_address, int port) {
     // enable socket
     inet_socket->enabled = 1;
     inet_socket->port = port;
-    
+
     //handle ClientUser
     inet_socket->c_u = ClientUser_new();
     inet_socket->chatmode = false;
@@ -454,20 +454,20 @@ int init_inet_socket(socket_info * inet_socket, char * ip_address, int port) {
     // copy ip_address to socket_info object
     inet_socket->ip_address = malloc(sizeof(char) * strlen(ip_address) + 1);
     strcpy(inet_socket->ip_address, ip_address);
-    
+
     struct sockaddr_in server_address;
-    
+
     // open server socket 
     if ((inet_socket->fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("error: opening server socket");
         return 1;
     }
-    
+
     if (setsockopt(inet_socket->fd, 
-                   SOL_SOCKET, 
-                   SO_REUSEADDR, 
-                   &inet_socket->enabled, 
-                   sizeof(int)) < 0) {
+                SOL_SOCKET, 
+                SO_REUSEADDR, 
+                &inet_socket->enabled, 
+                sizeof(int)) < 0) {
         perror("error: cannot set socket options");
         return 1;
     }
@@ -512,8 +512,8 @@ void read_flight_map_file(char * file_name, map_t flight_map) {
     char * input;
     while ((read = getline(&input, &length, file)) != -1) {
         // get tokens from input
-       	char * input_tokens = NULL;
-	    char * flight = strtok_r(input, " ", &input_tokens);
+        char * input_tokens = NULL;
+        char * flight = strtok_r(input, " ", &input_tokens);
         char * seats = strtok_r(NULL, "\n", &input_tokens);
 
         add_flight(flight_map, flight, seats);
@@ -567,7 +567,7 @@ char * process_chat_request(char * input, socket_info * soc_info) {
     ClientUser * c_u = soc_info->c_u; 
 
     if (!(command= strtok_r(input, " ", &input_tokens))) {
-		return "error: cannot proccess chat command"; 
+        return "error: cannot proccess chat command"; 
     }
 
     if (string_equal(command, "TEXT")) {
@@ -575,10 +575,10 @@ char * process_chat_request(char * input, socket_info * soc_info) {
 
         char * info = malloc(sizeof(char) * 256); 
 
-		if (!(message= strtok_r(NULL, "\0", &input_tokens))) {
+        if (!(message= strtok_r(NULL, "\0", &input_tokens))) {
 
-			return "Please enter a message";
-		}
+            return "Please enter a message";
+        }
 
         sprintf(info, "Broadcast~ %s: %s", c_u->username, message);
 
@@ -628,10 +628,10 @@ char * process_chat_request(char * input, socket_info * soc_info) {
     if (string_equal(command, "EXIT")) {
 
 
-		if (!(message= strtok_r(NULL, " ", &input_tokens))) {
+        if (!(message= strtok_r(NULL, " ", &input_tokens))) {
 
-			return "Please enter a valid command";
-		}
+            return "Please enter a valid command";
+        }
 
         if(string_equal(message, "CHAT")) {
 
@@ -647,10 +647,10 @@ char * process_chat_request(char * input, socket_info * soc_info) {
     if (string_equal(command, "EXIT")) {
 
 
-		if (!(message= strtok_r(NULL, " ", &input_tokens))) {
+        if (!(message= strtok_r(NULL, " ", &input_tokens))) {
 
-			return "Please enter a valid command";
-		}
+            return "Please enter a valid command";
+        }
 
         if(string_equal(message, "CHAT")) {
 
@@ -664,7 +664,7 @@ char * process_chat_request(char * input, socket_info * soc_info) {
     }
 
 
-    
+
     return "Command Not Recognized";
 }
 char * process_flight_request(char * input, socket_info * soc_info) {
@@ -679,7 +679,7 @@ char * process_flight_request(char * input, socket_info * soc_info) {
     ClientUser * c_u = soc_info->c_u; 
 
     if (!(command= strtok_r(input, " ", &input_tokens))) {
-		return "error: cannot proccess server command"; 
+        return "error: cannot proccess server command"; 
     }
 
 
@@ -688,30 +688,30 @@ char * process_flight_request(char * input, socket_info * soc_info) {
             return "Already logged on";
         else {
 
-        char * info = malloc(sizeof(char) * 100); 
-        
+            char * info = malloc(sizeof(char) * 100); 
 
-		if (!(username = strtok_r(NULL, " ", &input_tokens))) {
-			return "Please enter a username ";
-		}
 
-        for (int i = 0; i < no_ports; i++) {
-
-            pthread_mutex_lock(&flight_map_mutex);
-            if(strstr(servers[i].c_u->username, username)){
-                c_u->unique_num ++;
+            if (!(username = strtok_r(NULL, " ", &input_tokens))) {
+                return "Please enter a username ";
             }
-            pthread_mutex_unlock(&flight_map_mutex);
-            
-        }
-        if(c_u->unique_num > 0)
-            sprintf(username, "%s%d",username, c_u->unique_num);
 
-        strcpy(c_u->username, username);
-        c_u->loggedon = true;
-        sprintf(info, "Sucessfully logged on as %s", c_u->username);
+            for (int i = 0; i < no_ports; i++) {
 
-        return info;
+                pthread_mutex_lock(&flight_map_mutex);
+                if(strstr(servers[i].c_u->username, username)){
+                    c_u->unique_num ++;
+                }
+                pthread_mutex_unlock(&flight_map_mutex);
+
+            }
+            if(c_u->unique_num > 0)
+                sprintf(username, "%s%d",username, c_u->unique_num);
+
+            strcpy(c_u->username, username);
+            c_u->loggedon = true;
+            sprintf(info, "Sucessfully logged on as %s", c_u->username);
+
+            return info;
 
         }
 
@@ -723,9 +723,9 @@ char * process_flight_request(char * input, socket_info * soc_info) {
 
         char * info = malloc(sizeof(char) * 100); 
 
-		if (!(info = strtok_r(NULL, " ", &input_tokens))) {
-			return "Command Unavailable";
-		}
+        if (!(info = strtok_r(NULL, " ", &input_tokens))) {
+            return "Command Unavailable";
+        }
 
         if(string_equal(info, "CHAT")) {
 
@@ -745,25 +745,25 @@ char * process_flight_request(char * input, socket_info * soc_info) {
         if(!c_u->loggedon)
             return "You need to be looged on to perform this action";
 
-		// get flight to query 
-		char * flight = NULL; 
-		if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
-			return "error: cannot proccess flight to query";
-		}
+        // get flight to query 
+        char * flight = NULL; 
+        if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
+            return "error: cannot proccess flight to query";
+        }
 
-		char * seats;
-		int result;
-		printf("server: querying flight %s\n", flight);
-		pthread_mutex_lock(&flight_map_mutex);
-		// retrieve seats from map
-		result = hashmap_get(flight_map, flight, (void**) &seats);
-		pthread_mutex_unlock(&flight_map_mutex);
+        char * seats;
+        int result;
+        printf("server: querying flight %s\n", flight);
+        pthread_mutex_lock(&flight_map_mutex);
+        // retrieve seats from map
+        result = hashmap_get(flight_map, flight, (void**) &seats);
+        pthread_mutex_unlock(&flight_map_mutex);
 
-		if (result != MAP_OK) {
-			return "error: query failed"; 
-		}
+        if (result != MAP_OK) {
+            return "error: query failed"; 
+        }
 
-		return seats;
+        return seats;
     }	
 
     if (string_equal(command, "LIST")) {
@@ -774,16 +774,16 @@ char * process_flight_request(char * input, socket_info * soc_info) {
         printf("server: listing flights\n");
 
         char *info = NULL;
-		char *n = strtok_r(NULL, " ", &input_tokens);
+        char *n = strtok_r(NULL, " ", &input_tokens);
 
-		if (!(n)) {
+        if (!(n)) {
             info = (char*) hashmap_foreach(flight_map, &print_flight);
-		}
+        }
         else {
 
             info = (char*) hashmap_foreach_n(flight_map, atoi(n), &print_flight);
         }
-    
+
         return info;
     }
 
@@ -795,16 +795,16 @@ char * process_flight_request(char * input, socket_info * soc_info) {
         printf("server: listing flights\n");
 
         char *info = NULL;
-		char * n = NULL; 
+        char * n = NULL; 
 
-		if (!(n = strtok_r(NULL, " ", &input_tokens))) {
+        if (!(n = strtok_r(NULL, " ", &input_tokens))) {
             info = (char*) hashmap_foreach(flight_map, &print_avail_flight);
-		}
+        }
         else {
 
             info = (char*) hashmap_foreach_n(flight_map, atoi(n), &print_avail_flight);
         }
-    
+
         return info;
     }
 
@@ -812,8 +812,8 @@ char * process_flight_request(char * input, socket_info * soc_info) {
 
         if(!c_u->loggedon)
             return "You need to be looged on to perform this action";
-        
-        
+
+
         char * flight = NULL;
         char * seats = NULL;
         char * info = (char*)malloc(sizeof(char) * 256); //holder for message
@@ -829,21 +829,21 @@ char * process_flight_request(char * input, socket_info * soc_info) {
 
 
         int result = reserve_flight(flight_map, flight, seats);
-        
+
         switch (result) {
             case 0:
-                 sprintf(info, "An error occured"); //Format text to be sent back
+                sprintf(info, "An error occured"); //Format text to be sent back
                 break;
             case 1:
-                 sprintf(info, "Reserved %s seats on flight %s", seats, flight); //Format text to be sent back
+                sprintf(info, "Reserved %s seats on flight %s", seats, flight); //Format text to be sent back
                 break;
             case 2:
-                 sprintf(info, "Flight is Full"); //Format text to be sent back
+                sprintf(info, "Flight is Full"); //Format text to be sent back
                 break;
 
             default:
-                 sprintf(info, "An error occured"); //Format text to be sent back
-                
+                sprintf(info, "An error occured"); //Format text to be sent back
+
         }
 
         return info;
@@ -855,36 +855,36 @@ char * process_flight_request(char * input, socket_info * soc_info) {
         if(!c_u->loggedon)
             return "You need to be looged on to perform this action";
 
-      char * flight = NULL;
-      char * seats = NULL;
-      char * info = malloc(sizeof(char) * 256);
+        char * flight = NULL;
+        char * seats = NULL;
+        char * info = malloc(sizeof(char) * 256);
 
-      if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
-        return "error: cannot process flight to return";
-      }
+        if (!(flight = strtok_r(NULL, " ", &input_tokens))) {
+            return "error: cannot process flight to return";
+        }
 
-      if (!(seats = strtok_r(NULL, " ", &input_tokens))) {
-        return "error: cannot process seats to return"; }
+        if (!(seats = strtok_r(NULL, " ", &input_tokens))) {
+            return "error: cannot process seats to return"; }
 
-    int result = return_flight(flight_map, flight, seats);
+        int result = return_flight(flight_map, flight, seats);
 
-    switch (result) {
-        case 0:
-            sprintf(info, "An error occured"); //Format text to be sent back
-            break;
-        case 1:
-            sprintf(info, "Returned %s seats on flight %s", seats, flight); //Format text to be sent back
-            break;
-        case 2:
-            sprintf(info, "Returning Too many flights, stop trying to cheat the system"); //Format text to be sent back
-            break;
+        switch (result) {
+            case 0:
+                sprintf(info, "An error occured"); //Format text to be sent back
+                break;
+            case 1:
+                sprintf(info, "Returned %s seats on flight %s", seats, flight); //Format text to be sent back
+                break;
+            case 2:
+                sprintf(info, "Returning Too many flights, stop trying to cheat the system"); //Format text to be sent back
+                break;
 
-        default:
-            sprintf(info, "An error occured"); //Format text to be sent back
+            default:
+                sprintf(info, "An error occured"); //Format text to be sent back
 
-    }
+        }
 
-    return info;
+        return info;
 
     }
 
@@ -931,7 +931,10 @@ char * list_all_users () {
 
         pthread_mutex_lock(&flight_map_mutex);
         if(servers[i].c_u->loggedon){
-            sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
+            if(servers[i].chatmode)
+                sprintf(info + strlen(info), "%s - online\n", servers[i].c_u->username);
+            else
+                sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
             count++;
         }
         pthread_mutex_unlock(&flight_map_mutex);
@@ -946,23 +949,23 @@ char * list_all_users () {
 
 char * list_chat_users() {
 
-        char * info = malloc(sizeof(char) * 256); 
-        int count = 0;
+    char * info = malloc(sizeof(char) * 256); 
+    int count = 0;
 
-        printf("Listing Users in Chat \n");
-        sprintf(info, "*** Users in Chat ***\n");
+    printf("Listing Users in Chat \n");
+    sprintf(info, "*** Users in Chat ***\n");
 
-        for (int i = 0; i < no_ports; i++) {
+    for (int i = 0; i < no_ports; i++) {
 
-            pthread_mutex_lock(&flight_map_mutex);
-            if(servers[i].chatmode){
-                sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
-                count++;
-            }
-            pthread_mutex_unlock(&flight_map_mutex);
+        pthread_mutex_lock(&flight_map_mutex);
+        if(servers[i].chatmode){
+            sprintf(info + strlen(info), "%s\n", servers[i].c_u->username);
+            count++;
         }
+        pthread_mutex_unlock(&flight_map_mutex);
+    }
 
-        sprintf(info + strlen(info), "Total online: %d\n", count);
+    sprintf(info + strlen(info), "Total online: %d\n", count);
 
-        return info;
+    return info;
 }

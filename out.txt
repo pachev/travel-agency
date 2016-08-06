@@ -1,5 +1,5 @@
 
-test 10
+test 6
 empty 0
 BOG-MIA 38 
 empty2 0
